@@ -1,0 +1,14 @@
+create type public.app_role as enum ('owner','manager','sales','finance','delivery');
+create table public.profiles (id uuid primary key references auth.users on delete cascade, full_name text not null, role app_role not null default 'sales', created_at timestamptz default now());
+create table public.vehicles (id uuid primary key default gen_random_uuid(), stock_number text unique not null, make text not null, model text not null, year int, status text not null default 'available', landed_cost numeric, floor_price numeric, asking_price numeric, created_at timestamptz default now());
+create table public.customers (id uuid primary key default gen_random_uuid(), full_name text not null, phone text, source text, assigned_to uuid references public.profiles, created_at timestamptz default now());
+create table public.orders (id uuid primary key default gen_random_uuid(), vehicle_id uuid references public.vehicles, customer_id uuid references public.customers, salesperson_id uuid references public.profiles, sale_price numeric not null, status text default 'draft', created_at timestamptz default now());
+alter table public.profiles enable row level security; alter table public.vehicles enable row level security; alter table public.customers enable row level security; alter table public.orders enable row level security;
+create function public.current_role() returns app_role language sql stable security definer set search_path=public as $$ select role from profiles where id=auth.uid() $$;
+create policy "profile self or leadership" on profiles for select using (id=auth.uid() or current_role() in ('owner','manager'));
+create policy "authenticated vehicles" on vehicles for select to authenticated using (true);
+create policy "manage vehicles" on vehicles for all to authenticated using (current_role() in ('owner','manager','delivery')) with check (current_role() in ('owner','manager','delivery'));
+create policy "customers by team" on customers for select to authenticated using (assigned_to=auth.uid() or current_role() in ('owner','manager','finance'));
+create policy "orders by team" on orders for select to authenticated using (salesperson_id=auth.uid() or current_role() in ('owner','manager','finance','delivery'));
+create view public.vehicle_catalog with (security_invoker=true) as select id,stock_number,make,model,year,status,asking_price,created_at from public.vehicles;
+grant select on public.vehicle_catalog to authenticated;
