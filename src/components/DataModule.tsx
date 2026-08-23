@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, Eye, FilePlus2, Pencil, RefreshCw, Search, Trash2, X } from 'lucide-react'
+import { ArrowLeft, Eye, FilePlus2, ImagePlus, Pencil, RefreshCw, Search, Trash2, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { modules, optionText, type Field, type Lang, type Role } from '../lib/modules'
 import { ui } from '../lib/ui'
@@ -23,5 +23,41 @@ export default function DataModule({id,lang,role,userId}:{id:string;lang:Lang;ro
  {error&&<div className="error-banner">{error}</div>}{loading?<div className="card loading-state">{t.loading}</div>:filtered.length===0?<div className="card empty"><div className="empty-icon"><FilePlus2/></div><h3>{t.empty}</h3><p>{t.emptyHint}</p>{can.create.includes(role)&&<button className="primary" onClick={()=>setEditing(null)}>{t.create} {cfg.singular[lang]}</button>}</div>:<div className="card data-wrap"><table><thead><tr>{columns.map(k=><th key={k}>{fields.find(f=>f.key===k)?.[lang]||k}</th>)}<th>{t.actions}</th></tr></thead><tbody>{filtered.map(row=><tr key={row.id}>{columns.map(k=><td data-label={fields.find(f=>f.key===k)?.[lang]||k} key={k}>{display(row[k],lang)}</td>)}<td className="row-actions"><button title={t.view} onClick={()=>setViewing(row)}><Eye/></button>{can.edit.includes(role)&&<button title={t.edit} onClick={()=>setEditing(row)}><Pencil/></button>}{can.delete.includes(role)&&<button title={t.delete} onClick={()=>void remove(row)}><Trash2/></button>}</td></tr>)}</tbody></table></div>}
  {editing!==undefined&&<Editor lang={lang} fields={editableFields} configId={id} row={editing} userId={userId} close={()=>setEditing(undefined)} saved={()=>{setEditing(undefined);void load()}}/>}{viewing&&<Detail lang={lang} fields={fields} row={viewing} close={()=>setViewing(null)}/>}</main>
 }
-function Editor({lang,fields,configId,row,userId,close,saved}:{lang:Lang;fields:Field[];configId:string;row:Row|null;userId?:string;close:()=>void;saved:()=>void}){const cfg=modules[configId],t=ui[lang];const[form,setForm]=useState<Record<string,unknown>>(()=>Object.fromEntries(fields.map(f=>[f.key,row?.[f.key]??(f.type==='checkbox'?false:'')])));const[saving,setSaving]=useState(false),[error,setError]=useState('');const submit=async(e:React.FormEvent)=>{e.preventDefault();if(!supabase)return;setSaving(true);setError('');const clean=Object.fromEntries(Object.entries(form).map(([k,v])=>[k,v===''?null:v]));if(configId==='pricing'&&!row)clean.requested_by=userId;if(configId==='orders'&&!row)clean.salesperson_id=clean.salesperson_id||userId;if(configId==='content'&&!row)clean.creator_id=clean.creator_id||userId;if(configId==='crm'&&!row)clean.assigned_to=clean.assigned_to||userId;const result=row?await supabase.from(cfg.table).update(clean).eq('id',row.id):await supabase.from(cfg.table).insert(clean);setSaving(false);if(result.error)setError(result.error.message);else saved()};return <div className="modal-layer"><div className="modal"><div className="modal-head"><div><small>{row?t.edit:t.create}</small><h2>{cfg.singular[lang]}</h2></div><button onClick={close}><X/></button></div><form onSubmit={submit}><div className="form-grid">{fields.map(field=><label className={field.type==='textarea'?'wide':''} key={field.key}>{field[lang]}{field.required&&' *'}{field.type==='select'?<select required={field.required} value={String(form[field.key]??'')} onChange={e=>setForm({...form,[field.key]:e.target.value})}><option value="">—</option>{field.options?.map(o=><option key={o} value={o}>{display(o,lang)}</option>)}</select>:field.type==='textarea'?<textarea required={field.required} value={String(form[field.key]??'')} onChange={e=>setForm({...form,[field.key]:e.target.value})}/>:field.type==='checkbox'?<input className="toggle" type="checkbox" checked={Boolean(form[field.key])} onChange={e=>setForm({...form,[field.key]:e.target.checked})}/>:<input required={field.required} type={field.type||'text'} step={field.type==='number'?'any':undefined} value={String(form[field.key]??'')} onChange={e=>setForm({...form,[field.key]:field.type==='number'&&e.target.value!==''?Number(e.target.value):e.target.value})}/>}</label>)}</div>{error&&<div className="error-banner">{error}</div>}<div className="form-actions"><button type="button" className="secondary" onClick={close}>{t.cancel}</button><button className="primary" disabled={saving}>{saving?t.loading:t.save}</button></div></form></div></div>}
+
+function Editor({lang,fields,configId,row,userId,close,saved}:{lang:Lang;fields:Field[];configId:string;row:Row|null;userId?:string;close:()=>void;saved:()=>void}){
+ const cfg=modules[configId],t=ui[lang]
+ const[form,setForm]=useState<Record<string,unknown>>(()=>Object.fromEntries(fields.map(f=>[f.key,row?.[f.key]??(f.type==='checkbox'?false:'')])) )
+ const[pendingPhotos,setPendingPhotos]=useState<File[]>([])
+ const[saving,setSaving]=useState(false),[error,setError]=useState('')
+ const uploadPhotos=async()=>{
+  if(!supabase||pendingPhotos.length===0)return [] as string[]
+  if(pendingPhotos.length>10)throw new Error(lang==='fr'?'Maximum 10 photos par enregistrement.':'每次最多上传 10 张图片。')
+  const urls:string[]=[]
+  for(const file of pendingPhotos){
+   if(file.size>10*1024*1024)throw new Error(lang==='fr'?`${file.name} dépasse 10 Mo.`:`${file.name} 超过 10MB。`)
+   const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,'_')
+   const folder=row?.id||userId||'vehicle'
+   const path=`vehicles/${folder}/${Date.now()}-${Math.random().toString(36).slice(2,8)}-${safe}`
+   const{error:uploadError}=await supabase.storage.from('vehicle-media').upload(path,file,{cacheControl:'3600',upsert:false})
+   if(uploadError)throw uploadError
+   const{data}=supabase.storage.from('vehicle-media').getPublicUrl(path)
+   urls.push(data.publicUrl)
+  }
+  return urls
+ }
+ const submit=async(e:React.FormEvent)=>{
+  e.preventDefault();if(!supabase)return;setSaving(true);setError('')
+  try{
+   const uploaded=await uploadPhotos()
+   if(uploaded.length){const existing=String(form.photos||'').trim();form.photos=[existing,...uploaded].filter(Boolean).join('\n')}
+   const clean=Object.fromEntries(Object.entries(form).map(([k,v])=>[k,v===''?null:v]))
+   if(configId==='pricing'&&!row)clean.requested_by=userId;if(configId==='orders'&&!row)clean.salesperson_id=clean.salesperson_id||userId;if(configId==='content'&&!row)clean.creator_id=clean.creator_id||userId;if(configId==='crm'&&!row)clean.assigned_to=clean.assigned_to||userId
+   const result=row?await supabase.from(cfg.table).update(clean).eq('id',row.id):await supabase.from(cfg.table).insert(clean)
+   if(result.error)throw result.error
+   saved()
+  }catch(err){setError(err instanceof Error?err.message:String(err))}finally{setSaving(false)}
+ }
+ return <div className="modal-layer"><div className="modal"><div className="modal-head"><div><small>{row?t.edit:t.create}</small><h2>{cfg.singular[lang]}</h2></div><button onClick={close}><X/></button></div><form onSubmit={submit}><div className="form-grid">{fields.map(field=><label className={field.type==='textarea'||(configId==='inventory'&&field.key==='photos')?'wide':''} key={field.key}>{field[lang]}{field.required&&' *'}{configId==='inventory'&&field.key==='photos'?<><div className="photo-upload"><ImagePlus size={19}/><div><strong>{lang==='fr'?'Téléverser des photos':'上传车辆图片'}</strong><small>{lang==='fr'?'JPG, PNG, WEBP ou HEIC · 10 Mo max/image · jusqu’à 10 photos':'支持 JPG、PNG、WEBP、HEIC · 单张最大 10MB · 最多 10 张'}</small></div><input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple onChange={e=>setPendingPhotos(Array.from(e.target.files||[]))}/></div>{pendingPhotos.length>0&&<div className="photo-selection">{pendingPhotos.map((file,i)=><span key={`${file.name}-${i}`}>{file.name}</span>)}</div>}<textarea value={String(form[field.key]??'')} onChange={e=>setForm({...form,[field.key]:e.target.value})} placeholder={lang==='fr'?'Les liens existants restent disponibles ici.':'已有图片链接会保留在这里，也可以继续粘贴链接。'}/></>:field.type==='select'?<select required={field.required} value={String(form[field.key]??'')} onChange={e=>setForm({...form,[field.key]:e.target.value})}><option value="">—</option>{field.options?.map(o=><option key={o} value={o}>{display(o,lang)}</option>)}</select>:field.type==='textarea'?<textarea required={field.required} value={String(form[field.key]??'')} onChange={e=>setForm({...form,[field.key]:e.target.value})}/>:field.type==='checkbox'?<input className="toggle" type="checkbox" checked={Boolean(form[field.key])} onChange={e=>setForm({...form,[field.key]:e.target.checked})}/>:<input required={field.required} type={field.type||'text'} step={field.type==='number'?'any':undefined} value={String(form[field.key]??'')} onChange={e=>setForm({...form,[field.key]:field.type==='number'&&e.target.value!==''?Number(e.target.value):e.target.value})}/>}</label>)}</div>{error&&<div className="error-banner">{error}</div>}<div className="form-actions"><button type="button" className="secondary" onClick={close}>{t.cancel}</button><button className="primary" disabled={saving}>{saving?(lang==='fr'?'Téléversement…':'上传中…'):t.save}</button></div></form></div></div>
+}
+
 function Detail({lang,fields,row,close}:{lang:Lang;fields:Field[];row:Row;close:()=>void}){const t=ui[lang];return <div className="modal-layer"><div className="modal detail"><div className="modal-head"><div><small>{t.details}</small><h2>{display(row[fields[0]?.key],lang)}</h2></div><button onClick={close}><X/></button></div><div className="detail-grid">{fields.map(f=><div key={f.key}><small>{f[lang]}</small><strong>{display(row[f.key],lang)}</strong></div>)}</div><div className="form-actions"><button className="secondary" onClick={close}><ArrowLeft size={15}/>{t.back}</button></div></div></div>}
