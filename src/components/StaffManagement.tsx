@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { KeyRound, Pencil, Plus, RefreshCw, Search, ShieldCheck, Users, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import type { Lang, Role } from '../lib/modules'
+import '../staff.css'
 
 type Staff = {
   id: string
