@@ -1,0 +1,42 @@
+/* Sidebar navigation: keep header/footer fixed while allowing all menu items to scroll. */
+.shell > aside {
+  overflow: hidden;
+}
+.shell > aside nav {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 3px;
+  padding-bottom: 8px;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd8d2 transparent;
+}
+.shell > aside nav::-webkit-scrollbar {
+  width: 6px;
+}
+.shell > aside nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+.shell > aside nav::-webkit-scrollbar-thumb {
+  background: #cbd8d2;
+  border-radius: 8px;
+}
+.shell > aside nav button {
+  flex: 0 0 43px;
+}
+.shell > aside .side-foot {
+  flex: 0 0 auto;
+  margin-top: 12px;
+}
+@media (max-width: 720px) {
+  .shell > aside {
+    overflow: hidden;
+  }
+  .shell > aside nav {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
