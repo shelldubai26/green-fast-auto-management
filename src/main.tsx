@@ -4,4 +4,5 @@ import App from './App'
 import './styles.css'
 import './extras.css'
 import './table-fixes.css'
+import './sidebar-scroll.css'
 ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><App /></React.StrictMode>)
