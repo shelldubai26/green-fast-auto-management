@@ -4,7 +4,7 @@ import {supabase} from '../lib/supabase'
 import type{Lang}from'../lib/modules'
 import{parseSpecs,specGroups,vehicleSpecs,type SpecMap}from'../lib/vehicleSpecs'
 
-type Props={lang:Lang;initial:unknown;onApply:(specs:SpecMap,fields:Record<string,unknown>)=>void;vehicle?:{make?:unknown;model?:unknown;trim?:unknown;year?:unknown}}
+type Props={lang:Lang;photos?:string[];initial:unknown;onApply:(specs:SpecMap,fields:Record<string,unknown>)=>void;vehicle?:{make?:unknown;model?:unknown;trim?:unknown;year?:unknown}}
 type AiSpec={key?:string;value?:string;unit?:string;confidence?:number}
 const aliases:Record<string,string>={length:'length_width_height',width:'length_width_height',height:'length_width_height',engine_type:'engine',max_power:'horsepower',range:'electric_range',fast_charge_time:'charging_time',lane_keep:'lane_assist',camera_360:'parking_camera',screen_size:'central_screen',power_seats:'electric_seats',heated_seats:'seat_heating',ventilated_seats:'seat_ventilation',air_conditioning:'auto_ac',mirror_folding:'electric_mirrors'}
 const normalize=(items:AiSpec[]):SpecMap=>{const out:SpecMap={};for(const item of items||[]){const raw=String(item.key||'').trim();if(!raw||item.value==null||String(item.value).trim()==='')continue;const key=aliases[raw]||raw;if(key==='length_width_height'&&out[key]){const prev=String(out[key].value||'');out[key]={...out[key],value:[prev,String(item.value)].filter(Boolean).join(' × ')}}else out[key]={value:item.unit?`${item.value} ${item.unit}`:String(item.value),source:'ai',confidence:Number(item.confidence??0),confirmed:Number(item.confidence??0)>=.8,public:true}}return out}
