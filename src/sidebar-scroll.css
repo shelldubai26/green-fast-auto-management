@@ -1,42 +1,43 @@
-/* Sidebar navigation: keep header/footer fixed while allowing all menu items to scroll. */
+/* Sidebar navigation: fixed shell, independently scrollable menu, touch-friendly on tablet/mobile. */
 .shell > aside {
+  height: 100dvh;
+  max-height: 100dvh;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  overscroll-behavior: contain;
+}
+.shell > aside .side-head {
+  flex: 0 0 auto;
 }
 .shell > aside nav {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-height: 0;
-  overflow-y: auto;
+  max-height: none;
+  overflow-y: auto !important;
   overflow-x: hidden;
-  padding-right: 3px;
-  padding-bottom: 8px;
-  overscroll-behavior: contain;
+  padding-right: 5px;
+  padding-bottom: 18px;
+  overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   scrollbar-width: thin;
   scrollbar-color: #cbd8d2 transparent;
 }
-.shell > aside nav::-webkit-scrollbar {
-  width: 6px;
-}
-.shell > aside nav::-webkit-scrollbar-track {
-  background: transparent;
-}
-.shell > aside nav::-webkit-scrollbar-thumb {
-  background: #cbd8d2;
-  border-radius: 8px;
-}
-.shell > aside nav button {
-  flex: 0 0 43px;
-}
+.shell > aside nav::-webkit-scrollbar { width: 6px; }
+.shell > aside nav::-webkit-scrollbar-track { background: transparent; }
+.shell > aside nav::-webkit-scrollbar-thumb { background: #cbd8d2; border-radius: 8px; }
+.shell > aside nav button { flex: 0 0 43px; min-height: 43px; }
 .shell > aside .side-foot {
   flex: 0 0 auto;
-  margin-top: 12px;
+  margin-top: 8px;
+  background: #fff;
+}
+@media (max-width: 1000px) {
+  .shell > aside { height: 100dvh; max-height: 100dvh; }
+  .shell > aside nav { overflow-y: auto !important; touch-action: pan-y; -webkit-overflow-scrolling: touch; }
 }
 @media (max-width: 720px) {
-  .shell > aside {
-    overflow: hidden;
-  }
-  .shell > aside nav {
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-  }
+  .shell > aside { overflow: hidden; }
+  .shell > aside nav { flex: 1 1 0; min-height: 0; overflow-y: auto !important; }
 }
