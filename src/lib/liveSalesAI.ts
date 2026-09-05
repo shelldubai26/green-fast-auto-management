@@ -63,7 +63,6 @@ export type DirectorAdvice={priority:keyof Omit<LiveScores,'total'>;severity:'lo
 export function getDirectorAdvice(scores:LiveScores):DirectorAdvice{
   const entries=(Object.entries(scores).filter(([k])=>k!=='total') as [keyof Omit<LiveScores,'total'>,number][]).sort((a,b)=>a[1]-b[1])
   const [weak,value]=entries[0]
-  const severity:value extends number ? never : never = undefined as never
   const level:'low'|'medium'|'high'=value<45?'high':value<65?'medium':'low'
   if(weak==='retention')return {priority:weak,severity:level,action:'VISIBLE_DEMO',scriptFr:'Si vous avez une famille, regardez la taille réelle du coffre…',scriptZh:'如果你是家庭用车，看一下真实后备箱空间……',measureForSeconds:90}
   if(weak==='interaction')return {priority:weak,severity:level,action:'BINARY_QUESTION',scriptFr:'CS55 à 19M ou CS75 à 22M ? Écrivez 55 ou 75.',scriptZh:'CS55 1900万还是CS75 2200万？评论55或75。',measureForSeconds:60}
