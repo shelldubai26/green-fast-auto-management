@@ -1,0 +1,2 @@
+# LIVE SALES AI
+Current development: V0.4 multi-seller architecture, delayed conversion attribution, per-salesperson TikTok account binding via official Login Kit OAuth, CRM-to-sale feedback and AI action attribution. Real-time TikTok LIVE comments/viewer metrics remain provider-adapter work and will use approved/official access only.
