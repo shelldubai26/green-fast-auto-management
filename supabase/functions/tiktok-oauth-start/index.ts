@@ -22,7 +22,9 @@ Deno.serve(async(req)=>{
   if(insertError)return json({error:insertError.message},500)
   const u=new URL('https://www.tiktok.com/v2/auth/authorize/')
   u.searchParams.set('client_key',clientKey)
-  u.searchParams.set('scope','user.info.basic')
+  // Login Kit identity + Display API public videos + account-level engagement stats.
+  // TikTok still requires these scopes to be approved for the app and explicitly granted by each employee.
+  u.searchParams.set('scope','user.info.basic,user.info.stats,video.list')
   u.searchParams.set('response_type','code')
   u.searchParams.set('redirect_uri',redirectUri)
   u.searchParams.set('state',state)
