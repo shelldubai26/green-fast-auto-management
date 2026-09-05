@@ -40,7 +40,7 @@ export default function LiveSalesAI({lang,onOpenCrm}:Props){
   return()=>window.clearInterval(id)
  },[running])
 
- const adviceLabel=advice.action.replaceAll('_',' ')
+ const adviceLabel=advice.action.split('_').join(' ')
  const toggleDemo=()=>setRunning(v=>!v)
  return <main className="lsa-page">
   <section className="lsa-hero">
