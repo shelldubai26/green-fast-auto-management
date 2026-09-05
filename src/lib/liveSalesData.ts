@@ -1,15 +1,18 @@
 import { supabase } from './supabase'
 import type { DirectorAdvice, LiveScores } from './liveSalesAI'
+import { getMyTikTokConnection } from './tiktokAccounts'
 
 export type PersistedComment={id:number;user:string;text:string;intent:number;tag:string}
 export type LiveSnapshotInput={viewers:number;peak:number;avgWatchSeconds:number;commentsPerMinute:number;leads:number;hotLeads:number;appointments:number}
 export type LiveOutcome={leads:number;contacted:number;appointments:number;visits:number;testDrives:number;deposits:number;sales:number;revenue:number}
 export type ActionAttribution={directorActionId:number;actionType:string;priority:string;assistedLeads:number;appointments:number;visits:number;testDrives:number;deposits:number;sales:number;revenue:number;liveScoreDelta:number}
+export type ConversionLagStats={open:number;sold:number;within30:number;within60:number;within90:number;late:number;avgDays:number|null}
 type MetricEnvelope={metrics:LiveSnapshotInput;scores:LiveScores}
 
 export async function createLiveSession(userId:string){
   if(!supabase)throw new Error('Supabase not configured')
-  const {data,error}=await supabase.from('live_sessions').insert({platform:'tiktok',presenter_id:userId,started_at:new Date().toISOString(),status:'live',title:'Green Fast Auto LIVE',campaign:'LIVE SALES AI V0.3.1'}).select('id').single()
+  const connection=await getMyTikTokConnection(userId).catch(()=>null)
+  const {data,error}=await supabase.from('live_sessions').insert({platform:'tiktok',presenter_id:userId,tiktok_account_id:connection?.status==='connected'?connection.id:null,account_name:connection?.display_name||null,started_at:new Date().toISOString(),status:'live',title:'Green Fast Auto LIVE',campaign:'LIVE SALES AI V0.4'}).select('id').single()
   if(error)throw error
   return data.id as string
 }
@@ -24,7 +27,8 @@ export async function routeCommentToCrm(sessionId:string,userId:string,c:Persist
   const {data:customer,error:customerError}=await supabase.from('customers').insert({name:c.user,full_name:c.user,source:'tiktok',lead_source:'tiktok',lead_type:'active',stage:'new',assigned_sales:userId,assigned_to:userId,assigned_at:new Date().toISOString(),interested_model:model,notes:note,intent_score:c.intent,last_behavior_at:new Date().toISOString(),behavior_summary:{source:'tiktok_live',comment:c.text,intent:c.intent,tag:c.tag}}).select('id').single()
   if(customerError)throw customerError
   const customerId=customer.id as string,band=c.intent>=85?'A':c.intent>=65?'B':'C'
-  const {error:leadError}=await supabase.from('live_leads').insert({session_id:sessionId,customer_id:customerId,platform:'tiktok',platform_user_name:c.user,interested_model:model,intent_score:c.intent,intent_band:band,intent_tags:[c.tag],assigned_to:userId,next_action:'WhatsApp / appel',status:'new'})
+  const now=new Date().toISOString()
+  const {error:leadError}=await supabase.from('live_leads').insert({session_id:sessionId,customer_id:customerId,platform:'tiktok',platform_user_name:c.user,interested_model:model,intent_score:c.intent,intent_band:band,intent_tags:[c.tag],assigned_to:userId,next_action:'WhatsApp / appel',status:'new',source_locked_at:now,attribution_window_days:120})
   if(leadError)throw leadError
   await supabase.from('live_comments').update({routed_to_crm:true,customer_id:customerId}).eq('session_id',sessionId).eq('platform_comment_id',`demo-${c.id}`)
   return customerId
@@ -36,6 +40,15 @@ export async function getLiveOutcome(sessionId:string):Promise<LiveOutcome>{
   if(error)throw error
   const rows=data||[]
   return {leads:rows.length,contacted:rows.filter((r:any)=>r.first_contact_at||['contacted','qualified','appointment','visited','test_drive','deposit','won'].includes(r.status)).length,appointments:rows.filter((r:any)=>r.appointment_at||['appointment','visited','test_drive','deposit','won'].includes(r.status)).length,visits:rows.filter((r:any)=>r.visited_at||['visited','test_drive','deposit','won'].includes(r.status)).length,testDrives:rows.filter((r:any)=>r.test_drive_at||['test_drive','deposit','won'].includes(r.status)).length,deposits:rows.filter((r:any)=>r.deposit_at||['deposit','won'].includes(r.status)).length,sales:rows.filter((r:any)=>r.won_at||r.status==='won').length,revenue:rows.reduce((sum:number,r:any)=>sum+Number(r.sale_price_xof||0),0)}
+}
+
+export async function getConversionLagStats(sessionId:string):Promise<ConversionLagStats>{
+  if(!supabase)return {open:0,sold:0,within30:0,within60:0,within90:0,late:0,avgDays:null}
+  const {data,error}=await supabase.from('live_conversion_lag').select('won_at,days_to_sale,conversion_window_status').eq('session_id',sessionId)
+  if(error)throw error
+  const rows=data||[],sold=rows.filter((r:any)=>r.won_at)
+  const days=sold.map((r:any)=>Number(r.days_to_sale)).filter((n:number)=>Number.isFinite(n))
+  return {open:rows.length-sold.length,sold:sold.length,within30:sold.filter((r:any)=>Number(r.days_to_sale)<=30).length,within60:sold.filter((r:any)=>Number(r.days_to_sale)<=60).length,within90:sold.filter((r:any)=>Number(r.days_to_sale)<=90).length,late:sold.filter((r:any)=>r.conversion_window_status==='late_conversion').length,avgDays:days.length?Math.round((days.reduce((a:number,b:number)=>a+b,0)/days.length)*10)/10:null}
 }
 
 export async function getActionAttribution(sessionId:string):Promise<ActionAttribution[]>{
