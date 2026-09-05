@@ -34,9 +34,17 @@ Deno.serve(async(req)=>{
   const now=Date.now()
   const expiresAt=token.expires_in?new Date(now+Number(token.expires_in)*1000).toISOString():null
   const refreshExpiresAt=token.refresh_expires_in?new Date(now+Number(token.refresh_expires_in)*1000).toISOString():null
-  const {data:connection,error:connectionError}=await admin.from('tiktok_account_connections').upsert({user_id:stateRow.user_id,open_id:token.open_id,display_name:profile.display_name||null,avatar_url:profile.avatar_url||null,status:'connected',granted_scopes:String(token.scope||'').split(',').filter(Boolean),token_expires_at:expiresAt,refresh_expires_at:refreshExpiresAt,last_synced_at:new Date().toISOString(),updated_at:new Date().toISOString()},{onConflict:'user_id'}).select('id').single()
+  const scopes=String(token.scope||'').split(',').filter(Boolean)
+
+  const {data:connection,error:connectionError}=await admin.from('tiktok_account_connections').upsert({user_id:stateRow.user_id,open_id:token.open_id,display_name:profile.display_name||null,avatar_url:profile.avatar_url||null,status:'connected',granted_scopes:scopes,token_expires_at:expiresAt,refresh_expires_at:refreshExpiresAt,last_synced_at:new Date().toISOString(),updated_at:new Date().toISOString()},{onConflict:'user_id'}).select('id').single()
   if(connectionError||!connection)return redirect(appRedirect,{tiktok:'db_error'})
-  await admin.from('tiktok_account_tokens').upsert({connection_id:connection.id,access_token:token.access_token,refresh_token:token.refresh_token||null,expires_at:expiresAt,refresh_expires_at:refreshExpiresAt,updated_at:new Date().toISOString()},{onConflict:'connection_id'})
+
+  const {error:tokenError}=await admin.from('tiktok_account_tokens').upsert({connection_id:connection.id,access_token:token.access_token,refresh_token:token.refresh_token||null,expires_at:expiresAt,refresh_expires_at:refreshExpiresAt,updated_at:new Date().toISOString()},{onConflict:'connection_id'})
+  if(tokenError)return redirect(appRedirect,{tiktok:'db_error'})
+
+  const {error:canonicalError}=await admin.from('tiktok_accounts').upsert({profile_id:stateRow.user_id,open_id:token.open_id,display_name:profile.display_name||null,avatar_url:profile.avatar_url||null,scopes,token_ref:connection.id,token_status:'connected',connected_at:new Date().toISOString(),last_refresh_at:new Date().toISOString(),revoked_at:null},{onConflict:'profile_id,open_id'})
+  if(canonicalError)return redirect(appRedirect,{tiktok:'db_error'})
+
   await admin.from('tiktok_oauth_states').update({used_at:new Date().toISOString()}).eq('state_hash',stateHash)
   return redirect(appRedirect,{tiktok:'connected'})
 })
