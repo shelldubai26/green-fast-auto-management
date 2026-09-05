@@ -4,13 +4,13 @@ import type { Lang } from '../lib/modules'
 import { getRevenueDirector, type RevenueRecommendation } from '../lib/revenueDirector'
 import '../live-revenue-advisor.css'
 
-export default function LiveRevenueAdvisor({lang,userId}:{lang:Lang;userId:string}){
+export default function LiveRevenueAdvisor({lang,userId,onPriorityChange}:{lang:Lang;userId:string;onPriorityChange?:(r:RevenueRecommendation|null)=>void}){
  const zh=lang==='zh'
  const [rows,setRows]=useState<RevenueRecommendation[]>([])
  const [coverage,setCoverage]=useState(0)
  const [loading,setLoading]=useState(true)
  const [error,setError]=useState('')
- const load=useCallback(async()=>{setLoading(true);setError('');try{const r=await getRevenueDirector(userId);setRows(r.recommendations);setCoverage(r.grossProfitCoverage)}catch(e:any){setError(e?.message||String(e))}finally{setLoading(false)}},[userId])
+ const load=useCallback(async()=>{setLoading(true);setError('');try{const r=await getRevenueDirector(userId);setRows(r.recommendations);setCoverage(r.grossProfitCoverage);onPriorityChange?.(r.recommendations[0]||null)}catch(e:any){setError(e?.message||String(e));onPriorityChange?.(null)}finally{setLoading(false)}},[userId,onPriorityChange])
  useEffect(()=>{void load();const id=window.setInterval(()=>void load(),15000);return()=>window.clearInterval(id)},[load])
  const top=rows[0]
  const money=(n:number)=>n?`${Math.round(n/100000)/10} M CFA`:'—'
@@ -26,10 +26,7 @@ export default function LiveRevenueAdvisor({lang,userId}:{lang:Lang;userId:strin
  if(!top)return null
  return <section className="lra-shell">
   <div className="lra-head"><div><Sparkles size={17}/><b>{zh?'REVENUE AI · 当前直播商业优先级':'REVENUE AI · PRIORITÉ COMMERCIALE LIVE'}</b></div><button onClick={()=>void load()}><RefreshCw size={14}/></button></div>
-  <div className="lra-main">
-   <div className="lra-priority"><small>{zh?'现在优先车型':'MODÈLE PRIORITAIRE'}</small><strong>{top.model}</strong><span>{top.confidence} CONFIDENCE · {top.valueBasis==='gross_profit'?(zh?'真实毛利模式':'MARGE RÉELLE'):(zh?'收入代理模式':'PROXY REVENU')}</span></div>
-   <div className="lra-kpis"><div><Target size={15}/><small>{zh?'预计成交概率':'Prob. vente'}</small><b>{Math.round(top.closeProbability*1000)/10}%</b></div><div><CircleDollarSign size={15}/><small>{zh?(top.valueBasis==='gross_profit'?'预计毛利价值':'预计收入代理'):(top.valueBasis==='gross_profit'?'Valeur marge':'Proxy revenu')}</small><b>{money(top.expectedValue)}</b></div><div><small>{zh?'库存/在途':'Stock / transit'}</small><b>{top.inStock} / {top.inTransit}</b></div><div><small>{zh?'LIVE线索':'Leads LIVE'}</small><b>{top.leads}</b></div></div>
-  </div>
+  <div className="lra-main"><div className="lra-priority"><small>{zh?'现在优先车型':'MODÈLE PRIORITAIRE'}</small><strong>{top.model}</strong><span>{top.confidence} CONFIDENCE · {top.valueBasis==='gross_profit'?(zh?'真实毛利模式':'MARGE RÉELLE'):(zh?'收入代理模式':'PROXY REVENU')}</span></div><div className="lra-kpis"><div><Target size={15}/><small>{zh?'预计成交概率':'Prob. vente'}</small><b>{Math.round(top.closeProbability*1000)/10}%</b></div><div><CircleDollarSign size={15}/><small>{zh?(top.valueBasis==='gross_profit'?'预计毛利价值':'预计收入代理'):(top.valueBasis==='gross_profit'?'Valeur marge':'Proxy revenu')}</small><b>{money(top.expectedValue)}</b></div><div><small>{zh?'库存/在途':'Stock / transit'}</small><b>{top.inStock} / {top.inTransit}</b></div><div><small>{zh?'LIVE线索':'Leads LIVE'}</small><b>{top.leads}</b></div></div></div>
   <div className="lra-script"><b>{zh?'AI现在建议主播：':'Action recommandée maintenant :'}</b><span>{script}</span></div>
   <footer><span>{zh?`毛利数据覆盖 ${coverage}%`:`Couverture marge ${coverage}%`}</span><em>{zh?'当前TikTok实时指标仍为模拟；库存、CRM、价格与成交数据来自GF Auto。':'TikTok temps réel reste simulé ; stock, CRM, prix et ventes proviennent de GF Auto.'}</em></footer>
  </section>
