@@ -4,11 +4,12 @@ import type { DirectorAdvice, LiveScores } from './liveSalesAI'
 export type PersistedComment={id:number;user:string;text:string;intent:number;tag:string}
 export type LiveSnapshotInput={viewers:number;peak:number;avgWatchSeconds:number;commentsPerMinute:number;leads:number;hotLeads:number;appointments:number}
 export type LiveOutcome={leads:number;contacted:number;appointments:number;visits:number;testDrives:number;deposits:number;sales:number;revenue:number}
+export type ActionAttribution={directorActionId:number;actionType:string;priority:string;assistedLeads:number;appointments:number;visits:number;testDrives:number;deposits:number;sales:number;revenue:number;liveScoreDelta:number}
 type MetricEnvelope={metrics:LiveSnapshotInput;scores:LiveScores}
 
 export async function createLiveSession(userId:string){
   if(!supabase)throw new Error('Supabase not configured')
-  const {data,error}=await supabase.from('live_sessions').insert({platform:'tiktok',presenter_id:userId,started_at:new Date().toISOString(),status:'live',title:'Green Fast Auto LIVE',campaign:'LIVE SALES AI V0.3'}).select('id').single()
+  const {data,error}=await supabase.from('live_sessions').insert({platform:'tiktok',presenter_id:userId,started_at:new Date().toISOString(),status:'live',title:'Green Fast Auto LIVE',campaign:'LIVE SALES AI V0.3.1'}).select('id').single()
   if(error)throw error
   return data.id as string
 }
@@ -34,16 +35,14 @@ export async function getLiveOutcome(sessionId:string):Promise<LiveOutcome>{
   const {data,error}=await supabase.from('live_leads').select('status,first_contact_at,appointment_at,visited_at,test_drive_at,deposit_at,won_at,sale_price_xof').eq('session_id',sessionId)
   if(error)throw error
   const rows=data||[]
-  return {
-    leads:rows.length,
-    contacted:rows.filter((r:any)=>r.first_contact_at||['contacted','qualified','appointment','visited','test_drive','deposit','won'].includes(r.status)).length,
-    appointments:rows.filter((r:any)=>r.appointment_at||['appointment','visited','test_drive','deposit','won'].includes(r.status)).length,
-    visits:rows.filter((r:any)=>r.visited_at||['visited','test_drive','deposit','won'].includes(r.status)).length,
-    testDrives:rows.filter((r:any)=>r.test_drive_at||['test_drive','deposit','won'].includes(r.status)).length,
-    deposits:rows.filter((r:any)=>r.deposit_at||['deposit','won'].includes(r.status)).length,
-    sales:rows.filter((r:any)=>r.won_at||r.status==='won').length,
-    revenue:rows.reduce((sum:number,r:any)=>sum+Number(r.sale_price_xof||0),0)
-  }
+  return {leads:rows.length,contacted:rows.filter((r:any)=>r.first_contact_at||['contacted','qualified','appointment','visited','test_drive','deposit','won'].includes(r.status)).length,appointments:rows.filter((r:any)=>r.appointment_at||['appointment','visited','test_drive','deposit','won'].includes(r.status)).length,visits:rows.filter((r:any)=>r.visited_at||['visited','test_drive','deposit','won'].includes(r.status)).length,testDrives:rows.filter((r:any)=>r.test_drive_at||['test_drive','deposit','won'].includes(r.status)).length,deposits:rows.filter((r:any)=>r.deposit_at||['deposit','won'].includes(r.status)).length,sales:rows.filter((r:any)=>r.won_at||r.status==='won').length,revenue:rows.reduce((sum:number,r:any)=>sum+Number(r.sale_price_xof||0),0)}
+}
+
+export async function getActionAttribution(sessionId:string):Promise<ActionAttribution[]>{
+  if(!supabase)return []
+  const {data,error}=await supabase.from('live_action_attribution').select('director_action_id,action_type,priority,assisted_leads,appointments,visits,test_drives,deposits,sales,attributed_revenue_xof,result_delta').eq('session_id',sessionId).order('executed_at',{ascending:false})
+  if(error)throw error
+  return (data||[]).map((r:any)=>({directorActionId:Number(r.director_action_id),actionType:r.action_type||'',priority:r.priority||'',assistedLeads:Number(r.assisted_leads||0),appointments:Number(r.appointments||0),visits:Number(r.visits||0),testDrives:Number(r.test_drives||0),deposits:Number(r.deposits||0),sales:Number(r.sales||0),revenue:Number(r.attributed_revenue_xof||0),liveScoreDelta:Number(r.result_delta?.liveScore||0)}))
 }
 
 export async function beginDirectorAction(sessionId:string,advice:DirectorAdvice,before:MetricEnvelope){if(!supabase)throw new Error('Supabase not configured');const{data,error}=await supabase.from('live_director_actions').insert({session_id:sessionId,priority:advice.priority,severity:advice.severity,action_type:advice.action,reason:`Weakest dimension: ${advice.priority}`,script_fr:advice.scriptFr,script_zh:advice.scriptZh,measure_for_seconds:advice.measureForSeconds,acknowledged_at:new Date().toISOString(),executed_at:new Date().toISOString(),pre_metric:before}).select('id').single();if(error)throw error;return Number(data.id)}
