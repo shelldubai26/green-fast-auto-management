@@ -26,9 +26,9 @@ with (security_invoker=true) as
 select
   ls.presenter_id,
   coalesce(nullif(upper(trim(lda.recommended_model)),''),'UNKNOWN') as model_key,
-  coalesce(lda.action_type,'UNKNOWN') as action_type,
-  coalesce(lda.cta_type,'UNKNOWN') as cta_type,
-  coalesce(lda.value_basis,'revenue_proxy') as value_basis,
+  coalesce(lda.action_type,'UNKNOWN') as action_key,
+  coalesce(lda.cta_type,'UNKNOWN') as cta_key,
+  coalesce(lda.value_basis,'revenue_proxy') as value_basis_key,
   count(*)::int as actions,
   count(*) filter (where lda.post_metric is not null)::int as measured_actions,
   round(avg(lda.expected_value_before_xof) filter (where lda.expected_value_before_xof is not null))::numeric as avg_expected_value_before_xof,
@@ -45,7 +45,12 @@ from public.live_director_actions lda
 join public.live_sessions ls on ls.id=lda.session_id
 left join public.live_action_attribution laa on laa.director_action_id=lda.id
 where lda.executed_at is not null
-group by ls.presenter_id,model_key,action_type,cta_type,value_basis;
+group by
+  ls.presenter_id,
+  coalesce(nullif(upper(trim(lda.recommended_model)),''),'UNKNOWN'),
+  coalesce(lda.action_type,'UNKNOWN'),
+  coalesce(lda.cta_type,'UNKNOWN'),
+  coalesce(lda.value_basis,'revenue_proxy');
 
 comment on view public.live_revenue_action_learning is
 'Internal LIVE SALES AI learning matrix by presenter/model/action/CTA. Expected-value lift is an estimated decision metric; attributed revenue remains assist attribution and is not causal proof.';
