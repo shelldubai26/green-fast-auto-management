@@ -3,8 +3,9 @@ import { AlertTriangle, CheckCircle2, Link2, Loader2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { getMyTikTokConnection, getTikTokOAuthReadiness, type TikTokConnection } from '../lib/tiktokAccounts'
 import type { Lang } from '../lib/modules'
+import '../live-sales-ai.css'
 
-type Props={userId:string;lang:Lang}
+type Props={userId?:string;lang:Lang}
 
 export default function TikTokAccountCard({userId,lang}:Props){
   const zh=lang==='zh'
@@ -12,7 +13,22 @@ export default function TikTokAccountCard({userId,lang}:Props){
   const [connection,setConnection]=useState<TikTokConnection|null>(null)
   const [loading,setLoading]=useState(true)
   const [error,setError]=useState('')
-  useEffect(()=>{getMyTikTokConnection(userId).then(setConnection).catch(e=>setError(String(e?.message||e))).finally(()=>setLoading(false))},[userId])
+
+  const load=async()=>{
+    try{
+      setLoading(true);setError('')
+      if(!supabase)throw new Error('Supabase not configured')
+      let profileId=userId||''
+      if(!profileId){
+        const {data:{user}}=await supabase.auth.getUser()
+        profileId=user?.id||''
+      }
+      if(!profileId)throw new Error(zh?'未找到当前登录用户':'Utilisateur connecté introuvable')
+      setConnection(await getMyTikTokConnection(profileId))
+    }catch(e:any){setError(e?.message||String(e))}finally{setLoading(false)}
+  }
+
+  useEffect(()=>{void load()},[userId])
 
   const connect=async()=>{
     try{
@@ -20,7 +36,7 @@ export default function TikTokAccountCard({userId,lang}:Props){
       if(!readiness.ready)throw new Error(zh?'TikTok OAuth 公共配置尚未完成':'Configuration publique TikTok OAuth incomplète')
       if(!supabase)throw new Error('Supabase not configured')
       const {data:{session}}=await supabase.auth.getSession()
-      if(!session?.access_token)throw new Error('No authenticated session')
+      if(!session?.access_token)throw new Error(zh?'请先登录 Green Fast Auto':'Connectez-vous d’abord à Green Fast Auto')
       const base=import.meta.env.VITE_SUPABASE_URL
       const res=await fetch(`${base}/functions/v1/tiktok-oauth-start`,{headers:{authorization:`Bearer ${session.access_token}`}})
       const body=await res.json()
@@ -31,7 +47,13 @@ export default function TikTokAccountCard({userId,lang}:Props){
 
   const connected=connection?.token_status==='connected'
   return <section className="lsa-tiktok-account">
-    <div><span className="lsa-eyebrow"><Link2 size={14}/> TIKTOK ACCOUNT</span><h3>{connected?(connection?.display_name||connection?.username||'TikTok'):(zh?'连接个人TikTok账号':'Connecter mon compte TikTok')}</h3><p>{connected?(zh?'此销售的LIVE Session将绑定到该TikTok身份。':'Les sessions LIVE de ce vendeur seront liées à cette identité TikTok.'):(zh?'每个销售独立授权。只有完成TikTok Developer配置后才允许发起真实OAuth。':'Chaque vendeur autorise son propre compte. OAuth réel reste bloqué jusqu’à configuration TikTok Developer.')}</p>{!connected&&!readiness.ready&&<small className="lsa-status"><AlertTriangle size={12}/> {zh?'等待 Client Key + Redirect URI':'En attente du Client Key + Redirect URI'}</small>}{error&&<small className="lsa-status">{error}</small>}</div>
-    {connected?<div className="lsa-connected"><CheckCircle2 size={18}/><b>{zh?'已连接':'CONNECTÉ'}</b></div>:<button className="lsa-live" onClick={()=>void connect()} disabled={loading||!readiness.ready}>{loading?<Loader2 size={16}/>:<Link2 size={16}/>} {readiness.ready?(zh?'连接TikTok':'CONNECTER TIKTOK'):(zh?'OAuth未配置':'OAUTH NON CONFIGURÉ')}</button>}
+    <div>
+      <span className="lsa-eyebrow"><Link2 size={14}/> TIKTOK ACCOUNT</span>
+      <h3>{connected?(connection?.display_name||connection?.username||'TikTok'):(zh?'连接个人 TikTok 账号':'Connecter mon compte TikTok')}</h3>
+      <p>{connected?(zh?'该员工的 LIVE Session 将绑定到此 TikTok 身份。':'Les sessions LIVE de cet employé seront liées à cette identité TikTok.'):(zh?'使用 TikTok 官方 Login Kit 授权当前员工账号。这里仅连接身份，不代表已经获得 LIVE 实时评论/在线人数数据权限。':'Autorisez le compte employé via TikTok Login Kit. Cette connexion établit l’identité uniquement et ne donne pas automatiquement accès aux données LIVE temps réel.')}</p>
+      {!connected&&!readiness.ready&&<small className="lsa-status"><AlertTriangle size={12}/> {zh?'等待 Client Key + Redirect URI':'En attente du Client Key + Redirect URI'}</small>}
+      {error&&<small className="lsa-status">{error}</small>}
+    </div>
+    {connected?<div className="lsa-connected"><CheckCircle2 size={18}/><b>{zh?'已连接':'CONNECTÉ'}</b></div>:<button className="lsa-live" onClick={()=>void connect()} disabled={loading||!readiness.ready}>{loading?<Loader2 size={16}/>:<Link2 size={16}/>} {readiness.ready?(zh?'连接 TikTok':'CONNECTER TIKTOK'):(zh?'OAuth 未配置':'OAUTH NON CONFIGURÉ')}</button>}
   </section>
 }
