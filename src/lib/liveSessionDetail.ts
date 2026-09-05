@@ -66,11 +66,26 @@ export type SessionLead={
   conversionDays:number|null
 }
 
+export type MultiTouchInfluence={
+  customerId:string
+  saleId:string
+  sessionId:string
+  presenterId:string|null
+  role:string
+  weight:number
+  influenceValue:number
+  salePrice:number
+  touchPosition:number
+  touchCount:number
+  daysBeforeSale:number
+}
+
 export type SessionDetail={
   session:MyLiveSessionRow
   actions:SessionAction[]
   comments:SessionComment[]
   leads:SessionLead[]
+  influence:MultiTouchInfluence[]
 }
 
 function emptySummary(id:string):MyLiveSessionRow{
@@ -110,16 +125,17 @@ export async function getMyLiveHistory(userId:string,limit=40):Promise<MyLiveSes
 }
 
 export async function getLiveSessionDetail(sessionId:string):Promise<SessionDetail>{
-  if(!supabase)return {session:emptySummary(sessionId),actions:[],comments:[],leads:[]}
-  const [{data:s,error:sError},{data:snap,error:snapError},{data:actions,error:aError},{data:comments,error:cError},{data:leads,error:lError},{data:lags,error:lagError}]=await Promise.all([
+  if(!supabase)return {session:emptySummary(sessionId),actions:[],comments:[],leads:[],influence:[]}
+  const [{data:s,error:sError},{data:snap,error:snapError},{data:actions,error:aError},{data:comments,error:cError},{data:leads,error:lError},{data:lags,error:lagError},{data:influence,error:iError}]=await Promise.all([
     supabase.from('live_sessions').select('id,started_at,ended_at,status,account_name,peak_concurrent,avg_watch_seconds,leads,appointments,visits,test_drives,sales,revenue').eq('id',sessionId).single(),
     supabase.from('live_metric_snapshots').select('live_score,captured_at').eq('session_id',sessionId).order('captured_at',{ascending:false}).limit(1).maybeSingle(),
     supabase.from('live_director_actions').select('id,action_type,priority,executed_at,script_fr,script_zh,result_delta').eq('session_id',sessionId).order('executed_at',{ascending:false}),
     supabase.from('live_comments').select('id,platform_user_name,comment_text,intent_score,intent_band,intent_tags,routed_to_crm,customer_id,detected_at').eq('session_id',sessionId).order('detected_at',{ascending:true}),
     supabase.from('live_leads').select('id,customer_id,platform_user_name,interested_model,intent_band,intent_score,status,created_at,first_contact_at,appointment_at,visited_at,test_drive_at,deposit_at,won_at,sale_price_xof,conversion_delay_days').eq('session_id',sessionId).order('created_at',{ascending:true}),
-    supabase.from('live_conversion_lag').select('won_at,days_to_sale,conversion_window_status').eq('session_id',sessionId)
+    supabase.from('live_conversion_lag').select('won_at,days_to_sale,conversion_window_status').eq('session_id',sessionId),
+    supabase.from('live_multitouch_influence').select('customer_id,sale_id,session_id,presenter_id,influence_role,influence_weight,influence_value_xof,sale_price_xof,touch_position,touch_count,days_before_sale').eq('session_id',sessionId)
   ])
-  if(sError)throw sError;if(snapError)throw snapError;if(aError)throw aError;if(cError)throw cError;if(lError)throw lError;if(lagError)throw lagError
+  if(sError)throw sError;if(snapError)throw snapError;if(aError)throw aError;if(cError)throw cError;if(lError)throw lError;if(lagError)throw lagError;if(iError)throw iError
   const lag=lags||[],sold=lag.filter((x:any)=>x.won_at&&Number.isFinite(Number(x.days_to_sale)))
   const avg=sold.length?sold.reduce((n:number,x:any)=>n+Number(x.days_to_sale||0),0)/sold.length:null
   const session:MyLiveSessionRow={id:s.id,startedAt:s.started_at,endedAt:s.ended_at,status:s.status,accountName:s.account_name||null,peak:Number(s.peak_concurrent||0),avgWatch:Number(s.avg_watch_seconds||0),leads:Number(s.leads||0),appointments:Number(s.appointments||0),visits:Number(s.visits||0),testDrives:Number(s.test_drives||0),sales:Number(s.sales||0),revenue:Number(s.revenue||0),liveScore:Number((snap as any)?.live_score||0),sold30:sold.filter((x:any)=>Number(x.days_to_sale)<=30).length,sold60:sold.filter((x:any)=>Number(x.days_to_sale)<=60).length,sold90:sold.filter((x:any)=>Number(x.days_to_sale)<=90).length,late:sold.filter((x:any)=>x.conversion_window_status==='late_conversion').length,avgDaysToSale:avg===null?null:Math.round(avg*10)/10}
@@ -127,6 +143,7 @@ export async function getLiveSessionDetail(sessionId:string):Promise<SessionDeta
     session,
     actions:(actions||[]).map((r:any)=>({id:Number(r.id),actionType:r.action_type||'',priority:r.priority||'',executedAt:r.executed_at||null,scriptFr:r.script_fr||null,scriptZh:r.script_zh||null,liveScoreDelta:Number(r.result_delta?.liveScore||0),retentionDelta:Number(r.result_delta?.retention||0),interactionDelta:Number(r.result_delta?.interaction||0),leadsDelta:Number(r.result_delta?.leads||0)})),
     comments:(comments||[]).map((r:any)=>({id:Number(r.id),user:r.platform_user_name||null,text:r.comment_text,intentScore:Number(r.intent_score||0),intentBand:r.intent_band||null,intentTags:r.intent_tags||[],routed:Boolean(r.routed_to_crm),customerId:r.customer_id||null,detectedAt:r.detected_at})),
-    leads:(leads||[]).map((r:any)=>({id:r.id,customerId:r.customer_id||null,user:r.platform_user_name||null,model:r.interested_model||null,band:r.intent_band||null,score:Number(r.intent_score||0),status:r.status,createdAt:r.created_at,firstContactAt:r.first_contact_at||null,appointmentAt:r.appointment_at||null,visitedAt:r.visited_at||null,testDriveAt:r.test_drive_at||null,depositAt:r.deposit_at||null,wonAt:r.won_at||null,salePrice:Number(r.sale_price_xof||0),conversionDays:r.conversion_delay_days===null?null:Number(r.conversion_delay_days)}))
+    leads:(leads||[]).map((r:any)=>({id:r.id,customerId:r.customer_id||null,user:r.platform_user_name||null,model:r.interested_model||null,band:r.intent_band||null,score:Number(r.intent_score||0),status:r.status,createdAt:r.created_at,firstContactAt:r.first_contact_at||null,appointmentAt:r.appointment_at||null,visitedAt:r.visited_at||null,testDriveAt:r.test_drive_at||null,depositAt:r.deposit_at||null,wonAt:r.won_at||null,salePrice:Number(r.sale_price_xof||0),conversionDays:r.conversion_delay_days===null?null:Number(r.conversion_delay_days)})),
+    influence:(influence||[]).map((r:any)=>({customerId:r.customer_id,saleId:r.sale_id,sessionId:r.session_id,presenterId:r.presenter_id||null,role:r.influence_role||'',weight:Number(r.influence_weight||0),influenceValue:Number(r.influence_value_xof||0),salePrice:Number(r.sale_price_xof||0),touchPosition:Number(r.touch_position||0),touchCount:Number(r.touch_count||0),daysBeforeSale:Number(r.days_before_sale||0)}))
   }
 }
