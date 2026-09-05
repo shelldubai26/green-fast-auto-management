@@ -27,7 +27,7 @@ export async function getProductionReadiness():Promise<ProductionReadiness>{
   count('vehicles',q=>q.gt('gross_profit',0)),
   count('sales',q=>q.not('sold_at','is',null)),
   count('tiktok_accounts',q=>q.eq('token_status','connected')),
-  count('profiles',q=>q.eq('role','sales').eq('is_active',true)),
+  count('profiles',q=>q.eq('role','sales').eq('active',true)),
   count('live_sessions')
  ]).catch(async()=>{
   const vehicles=await count('vehicles').catch(()=>0),sales=await count('sales',q=>q.not('sold_at','is',null)).catch(()=>0),tiktokConnected=await count('tiktok_accounts',q=>q.eq('token_status','connected')).catch(()=>0),liveSessions=await count('live_sessions').catch(()=>0)
@@ -38,7 +38,7 @@ export async function getProductionReadiness():Promise<ProductionReadiness>{
  const priceCoverage=vehicles?Math.round(priceReady/vehicles*100):0
  const checks:ReadinessCheck[]=[
   {id:'supabase',level:isSupabaseReady?'ready':'blocked',title:'Core database',detail:isSupabaseReady?'Supabase client is configured.':'Supabase configuration missing.',value:isSupabaseReady?'READY':'BLOCKED'},
-  {id:'provider',level:provider.kind==='simulation'?'warning':'warning',title:'LIVE realtime provider',detail:provider.kind==='simulation'?'Current cockpit realtime signals are simulation. Production needs verified official/partner LIVE access.':'Authorized-provider mode is selected, but capabilities remain disabled until access is verified.',value:provider.label},
+  {id:'provider',level:'warning',title:'LIVE realtime provider',detail:provider.kind==='simulation'?'Current cockpit realtime signals are simulation. Production needs verified official/partner LIVE access.':'Authorized-provider mode is selected, but capabilities remain disabled until access is verified.',value:provider.label},
   {id:'oauth',level:publicClientKey&&publicRedirect&&oauthStartConfigured?'warning':'blocked',title:'TikTok OAuth',detail:publicClientKey&&publicRedirect&&oauthStartConfigured?'Public OAuth configuration is present. Server-side Client Secret and end-to-end account test still require verification.':'Client Key / redirect / OAuth start configuration is incomplete.',value:publicClientKey&&publicRedirect?'PUBLIC CONFIG OK':'INCOMPLETE'},
   {id:'account',level:tiktokConnected>0?'ready':'blocked',title:'Real seller account test',detail:tiktokConnected>0?`${tiktokConnected} TikTok account(s) currently connected.`:'No seller TikTok account is currently connected and verified.',value:String(tiktokConnected)},
   {id:'economics',level:marginCoverage>=90?'ready':costCoverage>0?'warning':'blocked',title:'Vehicle economics',detail:`Price coverage ${priceCoverage}% · landed cost ${costCoverage}% · gross profit ${marginCoverage}%. Revenue AI stays in proxy mode without verified cost.`,value:`GP ${marginCoverage}%`},
