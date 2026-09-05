@@ -12,9 +12,27 @@ type MetricEnvelope={metrics:LiveSnapshotInput;scores:LiveScores}
 export async function createLiveSession(userId:string){
   if(!supabase)throw new Error('Supabase not configured')
   const connection=await getMyTikTokConnection(userId).catch(()=>null)
-  const {data,error}=await supabase.from('live_sessions').insert({platform:'tiktok',presenter_id:userId,tiktok_account_id:connection?.status==='connected'?connection.id:null,account_name:connection?.display_name||null,started_at:new Date().toISOString(),status:'live',title:'Green Fast Auto LIVE',campaign:'LIVE SALES AI V0.4'}).select('id').single()
+  const {data,error}=await supabase.from('live_sessions').insert({
+    platform:'tiktok',presenter_id:userId,tiktok_account_id:connection?.token_status==='connected'?connection.id:null,
+    account_name:connection?.display_name||connection?.username||null,attribution_window_days:90,
+    started_at:new Date().toISOString(),status:'live',title:'Green Fast Auto LIVE',campaign:'LIVE SALES AI V0.4'
+  }).select('id').single()
   if(error)throw error
   return data.id as string
+}
+
+export async function getMyLiveSessions(userId:string){
+  if(!supabase)return []
+  const {data,error}=await supabase.from('live_sessions').select('*').eq('presenter_id',userId).order('started_at',{ascending:false})
+  if(error)throw error
+  return data||[]
+}
+
+export async function getTeamLiveSessions(){
+  if(!supabase)return []
+  const {data,error}=await supabase.from('live_sessions').select('*').order('started_at',{ascending:false})
+  if(error)throw error
+  return data||[]
 }
 
 export async function saveSnapshot(sessionId:string,m:LiveSnapshotInput,s:LiveScores){if(!supabase)return;const{error}=await supabase.from('live_metric_snapshots').insert({session_id:sessionId,viewers:m.viewers,peak:m.peak,avg_watch_seconds:m.avgWatchSeconds,comments_per_minute:m.commentsPerMinute,leads:m.leads,hot_leads:m.hotLeads,appointments:m.appointments,traffic_score:s.traffic,retention_score:s.retention,interaction_score:s.interaction,intent_score:s.intent,capture_score:s.capture,live_score:s.total});if(error)throw error}
