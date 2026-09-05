@@ -11,8 +11,7 @@ export default function TikTokAccountCard({userId,lang}:Props){
   const [connection,setConnection]=useState<TikTokConnection|null>(null)
   const [loading,setLoading]=useState(true)
   const [error,setError]=useState('')
-  const refresh=()=>getMyTikTokConnection(userId).then(setConnection).catch(e=>setError(String(e?.message||e))).finally(()=>setLoading(false))
-  useEffect(()=>{void refresh()},[userId])
+  useEffect(()=>{getMyTikTokConnection(userId).then(setConnection).catch(e=>setError(String(e?.message||e))).finally(()=>setLoading(false))},[userId])
 
   const connect=async()=>{
     try{
@@ -30,12 +29,7 @@ export default function TikTokAccountCard({userId,lang}:Props){
   }
 
   return <section className="lsa-tiktok-account">
-    <div>
-      <span className="lsa-eyebrow"><Link2 size={14}/> TIKTOK ACCOUNT</span>
-      <h3>{connection?.status==='connected'?(connection.display_name||'TikTok'):(zh?'连接个人TikTok账号':'Connecter mon compte TikTok')}</h3>
-      <p>{connection?.status==='connected'?(zh?'此销售的LIVE Session将绑定到该TikTok身份。':'Les sessions LIVE de ce vendeur seront liées à cette identité TikTok.'):(zh?'每个销售独立授权，数据不会和其他销售混在一起。':'Chaque vendeur autorise son propre compte. Les données restent séparées.')}</p>
-      {error&&<small className="lsa-status">{error}</small>}
-    </div>
+    <div><span className="lsa-eyebrow"><Link2 size={14}/> TIKTOK ACCOUNT</span><h3>{connection?.status==='connected'?(connection.display_name||'TikTok'):(zh?'连接个人TikTok账号':'Connecter mon compte TikTok')}</h3><p>{connection?.status==='connected'?(zh?'此销售的LIVE Session将绑定到该TikTok身份。':'Les sessions LIVE de ce vendeur seront liées à cette identité TikTok.'):(zh?'每个销售独立授权，数据不会和其他销售混在一起。':'Chaque vendeur autorise son propre compte. Les données restent séparées.')}</p>{error&&<small className="lsa-status">{error}</small>}</div>
     {connection?.status==='connected'?<div className="lsa-connected"><CheckCircle2 size={18}/><b>{zh?'已连接':'CONNECTÉ'}</b></div>:<button className="lsa-live" onClick={()=>void connect()} disabled={loading}>{loading?<Loader2 size={16}/>:<Link2 size={16}/>} {zh?'连接TikTok':'CONNECTER TIKTOK'}</button>}
   </section>
 }
