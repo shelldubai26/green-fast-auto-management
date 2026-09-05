@@ -26,6 +26,30 @@ export type SellerLiveRow={
   avgDaysToSale:number|null
 }
 
+export type SellerSessionHistoryRow={
+  sessionId:string
+  startedAt:string|null
+  endedAt:string|null
+  status:string
+  accountName:string|null
+  campaign:string|null
+  primaryVehicle:string|null
+  peak:number
+  avgWatch:number
+  liveScore:number
+  leads:number
+  appointments:number
+  visits:number
+  testDrives:number
+  sales:number
+  revenue:number
+  sold30:number
+  sold60:number
+  sold90:number
+  lateSales:number
+  avgDaysToSale:number|null
+}
+
 export type CommandCenterSummary={
   sellers:number
   connected:number
@@ -35,6 +59,33 @@ export type CommandCenterSummary={
   visits:number
   sales:number
   revenue:number
+}
+
+export async function getSellerLiveHistory(profileId:string):Promise<SellerSessionHistoryRow[]> {
+  if(!supabase)return []
+  const since=new Date(Date.now()-180*86400000).toISOString()
+  const {data:sessions,error:sErr}=await supabase.from('live_sessions')
+    .select('id,started_at,ended_at,status,account_name,campaign,primary_vehicle,peak_concurrent,avg_watch_seconds,leads,appointments,visits,test_drives,sales,revenue')
+    .eq('presenter_id',profileId).gte('created_at',since).order('started_at',{ascending:false}).limit(40)
+  if(sErr)throw sErr
+  const ids=(sessions||[]).map((s:any)=>s.id)
+  if(!ids.length)return []
+  const [{data:snaps,error:snapErr},{data:lags,error:lagErr}]=await Promise.all([
+    supabase.from('live_metric_snapshots').select('session_id,live_score,captured_at').in('session_id',ids).order('captured_at',{ascending:false}),
+    supabase.from('live_conversion_lag').select('session_id,won_at,days_to_sale,conversion_window_status').in('session_id',ids)
+  ])
+  if(snapErr)throw snapErr;if(lagErr)throw lagErr
+  const latestScore=new Map<string,number>()
+  for(const s of snaps||[])if(!latestScore.has((s as any).session_id))latestScore.set((s as any).session_id,Number((s as any).live_score||0))
+  const lagBySession=new Map<string,any[]>()
+  for(const l of lags||[]){const id=(l as any).session_id;if(!id)continue;const list=lagBySession.get(id)||[];list.push(l);lagBySession.set(id,list)}
+  return (sessions||[]).map((s:any)=>{
+    const ls=lagBySession.get(s.id)||[]
+    const sold=ls.filter((x:any)=>x.won_at&&Number.isFinite(Number(x.days_to_sale)))
+    const within=(d:number)=>sold.filter((x:any)=>Number(x.days_to_sale)<=d).length
+    const avg=sold.length?sold.reduce((n:number,x:any)=>n+Number(x.days_to_sale||0),0)/sold.length:null
+    return {sessionId:s.id,startedAt:s.started_at||null,endedAt:s.ended_at||null,status:s.status||'ended',accountName:s.account_name||null,campaign:s.campaign||null,primaryVehicle:s.primary_vehicle||null,peak:Number(s.peak_concurrent||0),avgWatch:Number(s.avg_watch_seconds||0),liveScore:latestScore.get(s.id)||0,leads:Number(s.leads||0),appointments:Number(s.appointments||0),visits:Number(s.visits||0),testDrives:Number(s.test_drives||0),sales:Number(s.sales||0),revenue:Number(s.revenue||0),sold30:within(30),sold60:within(60),sold90:within(90),lateSales:sold.filter((x:any)=>x.conversion_window_status==='late_conversion'||Number(x.days_to_sale)>90).length,avgDaysToSale:avg===null?null:Math.round(avg*10)/10}
+  })
 }
 
 export async function getLiveCommandCenter():Promise<{summary:CommandCenterSummary;rows:SellerLiveRow[]}> {
