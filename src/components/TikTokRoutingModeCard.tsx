@@ -1,0 +1,14 @@
+import {useEffect,useState} from 'react'
+import {Building2,MessageCircle,UserRound} from 'lucide-react'
+import {supabase} from '../lib/supabase'
+import type{Lang}from'../lib/modules'
+
+type Account={id:string;display_name:string|null;profile_id:string;account_kind:'employee'|'official'}
+export default function TikTokRoutingModeCard({lang}:{lang:Lang}){
+ const zh=lang==='zh',[rows,setRows]=useState<Account[]>([]),[busy,setBusy]=useState(''),[error,setError]=useState('')
+ const load=async()=>{if(!supabase)return;const{data,error}=await supabase.from('tiktok_accounts').select('id,display_name,profile_id,account_kind').eq('token_status','connected').order('connected_at',{ascending:false});if(error)setError(error.message);else setRows((data||[]) as Account[])}
+ useEffect(()=>{void load()},[])
+ const setKind=async(id:string,kind:'employee'|'official')=>{if(!supabase)return;setBusy(id);setError('');const{error}=await supabase.rpc('gf_set_tiktok_account_kind',{p_account_id:id,p_kind:kind});setBusy('');if(error)setError(error.message);else await load()}
+ if(!rows.length)return null
+ return <section className="card" style={{marginTop:16}}><small style={{fontWeight:800,letterSpacing:'.08em'}}>WHATSAPP ROUTING</small><h3 style={{margin:'5px 0'}}>{zh?'TikTok账号跳转规则':'Routage WhatsApp des comptes TikTok'}</h3><p style={{margin:'0 0 12px',opacity:.72}}>{zh?'员工账号必须跳员工自己的 WhatsApp；Green Fast 官方账号才跳公司官方 WhatsApp 07 00 73 71 18。':'Un compte employé doit rediriger vers son WhatsApp personnel. Seul un compte officiel Green Fast redirige vers le WhatsApp société 07 00 73 71 18.'}</p>{error&&<div className="error-banner">{error}</div>}<div style={{display:'grid',gap:10}}>{rows.map(r=><div key={r.id} style={{display:'flex',justifyContent:'space-between',gap:12,alignItems:'center',padding:'11px 12px',border:'1px solid #e1e7e3',borderRadius:10,flexWrap:'wrap'}}><div><b>{r.display_name||'TikTok'}</b><small style={{display:'block',marginTop:3,opacity:.65}}>{r.account_kind==='official'?(zh?'当前：官方账号 → 公司 WhatsApp':'Officiel → WhatsApp société'):(zh?'当前：员工账号 → 个人 WhatsApp':'Employé → WhatsApp personnel')}</small></div><div style={{display:'flex',gap:8}}><button className={r.account_kind==='employee'?'primary':'secondary'} disabled={busy===r.id} onClick={()=>void setKind(r.id,'employee')}><UserRound size={15}/>{zh?'员工账号':'Employé'}</button><button className={r.account_kind==='official'?'primary':'secondary'} disabled={busy===r.id} onClick={()=>void setKind(r.id,'official')}><Building2 size={15}/>{zh?'官方账号':'Officiel'}</button></div></div>)}</div><p style={{margin:'11px 0 0',fontSize:11,opacity:.72}}><MessageCircle size={13} style={{verticalAlign:'middle',marginRight:5}}/>{zh?'官方号码：07 00 73 71 18。账号类型只能由 Owner 修改。':'Numéro officiel : 07 00 73 71 18. Seul le Owner peut changer le type de compte.'}</p></section>
+}
