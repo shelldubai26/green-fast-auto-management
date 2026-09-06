@@ -1,0 +1,20 @@
+import {useEffect,useMemo,useState} from 'react'
+import {CalendarDays,Eye,MessageCircle,Store,Target,TrendingUp,Video} from 'lucide-react'
+import {supabase} from '../lib/supabase'
+import type {Lang} from '../lib/modules'
+import './seller-sales-cockpit.css'
+
+type Props={lang:Lang;userId:string}
+type VideoRow={view_count:number|null;like_count:number|null;comment_count:number|null;share_count:number|null;create_time:string|null}
+type AttrRow={captured_at:string|null;visited_at:string|null;sold_at:string|null;sale_price_xof:number|null}
+const dayStart=(d=new Date())=>new Date(d.getFullYear(),d.getMonth(),d.getDate()).toISOString()
+const monthStart=(d=new Date())=>new Date(d.getFullYear(),d.getMonth(),1).toISOString()
+const fmt=(n:number)=>new Intl.NumberFormat('fr-FR',{notation:n>=10000?'compact':'standard',maximumFractionDigits:1}).format(n)
+
+export default function SellerSalesCockpit({lang,userId}:Props){
+ const zh=lang==='zh',[videos,setVideos]=useState<VideoRow[]>([]),[attr,setAttr]=useState<AttrRow[]>([]),[loading,setLoading]=useState(true)
+ useEffect(()=>{void(async()=>{try{if(!supabase)return;const start=monthStart();const [{data:v},{data:a}]=await Promise.all([supabase.from('tiktok_videos').select('view_count,like_count,comment_count,share_count,create_time').eq('profile_id',userId).gte('create_time',start),supabase.from('tiktok_content_attribution').select('captured_at,visited_at,sold_at,sale_price_xof').eq('profile_id',userId).gte('captured_at',start)]);setVideos((v||[]) as VideoRow[]);setAttr((a||[]) as AttrRow[])}finally{setLoading(false)}})()},[userId])
+ const today=dayStart(),stats=useMemo(()=>{const tv=videos.filter(v=>(v.create_time||'')>=today),ta=attr.filter(a=>(a.captured_at||'')>=today);return {todayVideos:tv.length,todayViews:tv.reduce((s,v)=>s+Number(v.view_count||0),0),monthVideos:videos.length,monthViews:videos.reduce((s,v)=>s+Number(v.view_count||0),0),leads:attr.length,visits:attr.filter(a=>a.visited_at).length,sales:attr.filter(a=>a.sold_at).length,revenue:attr.filter(a=>a.sold_at).reduce((s,a)=>s+Number(a.sale_price_xof||0),0),todayLeads:ta.length}},[videos,attr,today])
+ const action=stats.todayVideos===0?(zh?'今天先发布 1 条汽车内容，让获客入口开始工作。':'Publiez 1 contenu auto aujourd’hui pour activer votre acquisition.'):stats.todayLeads===0?(zh?'今天已有内容，但还没有 TikTok 留资：检查 Bio Link，并在视频/直播里明确引导客户点主页链接。':'Du contenu est publié mais aucun lead TikTok aujourd’hui : vérifiez le Bio Link et ajoutez un CTA clair vers le lien du profil.'):stats.visits===0?(zh?'已经有客户进入 CRM，下一步优先联系并推动预约到店。':'Des prospects sont déjà dans le CRM : priorité au contact et à la prise de rendez-vous.'):zh?'继续把高意向客户推进到店、试驾和成交。':'Continuez à faire avancer les prospects chauds vers visite, essai et vente.'
+ return <section className="ssc"><header><div><span><TrendingUp size={15}/>{zh?'我的销售作战台':'MON COCKPIT COMMERCIAL'}</span><h2>{zh?'今天先看结果，再决定动作':'Voir le résultat, puis agir'}</h2></div><small><CalendarDays size={14}/>{zh?'本月实时累计':'Cumul du mois'}</small></header><div className="ssc-grid"><article><Video/><small>{zh?'今日视频':'Vidéos aujourd’hui'}</small><strong>{stats.todayVideos}</strong><em>{zh?`本月 ${stats.monthVideos}`:`Mois ${stats.monthVideos}`}</em></article><article><Eye/><small>{zh?'今日播放':'Vues aujourd’hui'}</small><strong>{fmt(stats.todayViews)}</strong><em>{zh?`本月 ${fmt(stats.monthViews)}`:`Mois ${fmt(stats.monthViews)}`}</em></article><article><MessageCircle/><small>{zh?'TikTok获客':'Leads TikTok'}</small><strong>{stats.leads}</strong><em>{zh?`今日 ${stats.todayLeads}`:`Aujourd’hui ${stats.todayLeads}`}</em></article><article><Store/><small>{zh?'到店':'Visites'}</small><strong>{stats.visits}</strong><em>{zh?'本月':'Ce mois'}</em></article><article><Target/><small>{zh?'成交':'Ventes'}</small><strong>{stats.sales}</strong><em>{zh?'本月':'Ce mois'}</em></article><article><TrendingUp/><small>{zh?'归因销售额':'CA attribué'}</small><strong>{stats.revenue?`${fmt(Math.round(stats.revenue/1000000))}M`:'0'}</strong><em>CFA · {zh?'内部归因':'attribution interne'}</em></article></div><div className="ssc-next"><b>{zh?'AI 今日建议':'ACTION PRIORITAIRE'}</b><p>{loading?(zh?'正在读取你的数据…':'Lecture de vos données…'):action}</p></div></section>
+}
