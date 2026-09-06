@@ -3,6 +3,7 @@ import {CheckCircle2,Link2,Loader2,Phone,ShieldCheck} from 'lucide-react'
 import {supabase} from '../lib/supabase'
 import {getMyTikTokConnection,getTikTokOAuthReadiness} from '../lib/tiktokAccounts'
 import type {Lang} from '../lib/modules'
+import './SellerTikTokSetupChecklist.css'
 
 type State={role:string;whatsapp:string;tiktok:boolean;bio:boolean;code:string|null}
 export default function SellerTikTokSetupChecklist({lang,userId}:{lang:Lang;userId:string}){
