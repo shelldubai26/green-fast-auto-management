@@ -10,12 +10,13 @@ export type TikTokConnection={
   scopes:string[]
   token_status:'connected'|'expired'|'revoked'|'error'
   connected_at:string
+  account_kind:'employee'|'official'
 }
 
 export async function getMyTikTokConnection(profileId:string):Promise<TikTokConnection|null>{
   if(!supabase)return null
   const {data,error}=await supabase.from('tiktok_accounts')
-    .select('id,profile_id,open_id,display_name,username,avatar_url,scopes,token_status,connected_at')
+    .select('id,profile_id,open_id,display_name,username,avatar_url,scopes,token_status,connected_at,account_kind')
     .eq('profile_id',profileId)
     .eq('token_status','connected')
     .order('connected_at',{ascending:false})
@@ -28,7 +29,7 @@ export async function getMyTikTokConnection(profileId:string):Promise<TikTokConn
 export async function listTikTokConnectionsForManager():Promise<TikTokConnection[]>{
   if(!supabase)return []
   const {data,error}=await supabase.from('tiktok_accounts')
-    .select('id,profile_id,open_id,display_name,username,avatar_url,scopes,token_status,connected_at')
+    .select('id,profile_id,open_id,display_name,username,avatar_url,scopes,token_status,connected_at,account_kind')
     .order('connected_at',{ascending:false})
   if(error)throw error
   return (data||[]) as TikTokConnection[]
