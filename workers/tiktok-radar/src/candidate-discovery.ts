@@ -15,8 +15,9 @@ const QUERIES=[
   'vente voiture abidjan',
   'automobile abidjan',
 ]
-const AUTO_WORDS=['voiture','auto','automobile','suv','4x4','toyota','mercedes','bmw','jetour','changan','prado','land cruiser','vente','occasion','véhicule','vehicule']
-const GEO_WORDS=['abidjan','côte d’ivoire',"côte d'ivoire",'cote d ivoire','ivoire','ci','cocody','marcory','treichville','yopougon','plateau']
+const AUTO_WORDS=['voiture','auto','automobile','suv','4x4','toyota','mercedes','bmw','jetour','changan','prado','land cruiser','vente','occasion','véhicule','vehicule','motor','motors','cars','car']
+const GEO_WORDS=['abidjan','côte d’ivoire',"côte d'ivoire",'cote d ivoire','ivoire','ci','cocody','marcory','treichville','yopougon','plateau','225']
+const ACCOUNT_AUTO_WORDS=['auto','automobile','motor','motors','car','cars','voiture','garage','vehicle','vehicule']
 
 function textScore(text:string,words:string[],each:number,max:number){
   const t=text.toLowerCase(); let s=0
@@ -26,11 +27,14 @@ function textScore(text:string,words:string[],each:number,max:number){
 function n(v:number|null|undefined){return Number(v||0)}
 function candidateScore(v:SocQDiscoveryVideo){
   const text=`${v.caption||''} ${v.displayName||''} ${v.username}`.toLowerCase()
+  const accountText=`${v.displayName||''} ${v.username}`.toLowerCase()
   const auto=textScore(text,AUTO_WORDS,10,60)
   const geo=textScore(text,GEO_WORDS,15,45)
+  const accountAuto=textScore(accountText,ACCOUNT_AUTO_WORDS,10,30)
   const engagement=Math.min(20,(n(v.views)>=10000?8:n(v.views)>=2000?4:0)+(n(v.comments)>=30?6:n(v.comments)>=5?3:0)+(n(v.likes)>=500?4:n(v.likes)>=50?2:0)+(n(v.followers)>=5000?2:0))
-  const discovery=Math.min(100,auto+geo+engagement)
-  return {auto:Math.min(100,Math.max(30,auto)),geo:Math.min(100,Math.max(25,geo)),discovery}
+  const queryMatchBonus=15
+  const discovery=Math.min(100,auto+geo+accountAuto+engagement+queryMatchBonus)
+  return {auto:Math.min(100,auto+accountAuto),geo:Math.min(100,geo),engagement,accountAuto,discovery}
 }
 
 async function rpc<T>(name:string,args:Record<string,unknown>):Promise<T>{
@@ -44,7 +48,7 @@ export async function runCandidateDiscovery(){
   try{
     const {data:watch}=await supabase.from('tiktok_watchlist').select('username')
     const existing=new Set((watch||[]).map((x:any)=>String(x.username||'').toLowerCase()))
-    let seenVideos=0, upserts=0, skippedExisting=0
+    let seenVideos=0, upserts=0, skippedExisting=0, rejectedLowQuality=0
     for(const query of QUERIES){
       try{
         const videos=await provider.searchPublicVideos(query,20)
@@ -59,7 +63,8 @@ export async function runCandidateDiscovery(){
           const username=v.username.toLowerCase()
           if(existing.has(username)){skippedExisting++;continue}
           const score=candidateScore(v)
-          if(score.discovery<35)continue
+          // Require actual automotive evidence from the creator/video, not just a search hit.
+          if(score.auto<20 || score.discovery<45){rejectedLowQuality++;continue}
           const priority=Math.min(95,Math.max(45,Math.round(score.discovery)))
           const tier=priority>=80?'A':priority>=60?'B':'C'
           await rpc<string>('radar_worker_upsert_watchlist_suggestion',{p_token:RADAR_WORKER_TOKEN,p_row:{
@@ -72,20 +77,20 @@ export async function runCandidateDiscovery(){
             suggested_priority:priority,suggested_tier:tier,
             provider_name:'socq',discovery_query:query,discovery_score:score.discovery,
             discovered_video_url:v.videoUrl||null,discovered_caption:(v.caption||'').slice(0,1000),
-            discovered_metrics:{followers:v.followers,views:v.views,likes:v.likes,comments:v.comments,shares:v.shares,created_at:v.createdAt},
-            evidence:{source:'socq_tiktok_search',query,video_url:v.videoUrl||null,caption:(v.caption||'').slice(0,500)}
+            discovered_metrics:{followers:v.followers,views:v.views,likes:v.likes,comments:v.comments,shares:v.shares,created_at:v.createdAt,engagement_score:score.engagement,account_auto_score:score.accountAuto},
+            evidence:{source:'socq_tiktok_search',query,video_url:v.videoUrl||null,caption:(v.caption||'').slice(0,500),auto_score:score.auto,geo_score:score.geo,engagement_score:score.engagement}
           }})
           upserts++
         }
       }catch(e){console.error('discovery_query_error',query,e instanceof Error?e.message:String(e))}
     }
-    console.log(JSON.stringify({event:'candidate_discovery',queries:QUERIES.length,seen_videos:seenVideos,suggestions_upserted:upserts,skipped_existing:skippedExisting,interval_ms:DISCOVERY_MS,version:'0.5.6'}))
+    console.log(JSON.stringify({event:'candidate_discovery',queries:QUERIES.length,seen_videos:seenVideos,suggestions_upserted:upserts,skipped_existing:skippedExisting,rejected_low_quality:rejectedLowQuality,interval_ms:DISCOVERY_MS,version:'0.5.7'}))
   }finally{running=false}
 }
 
 export function startCandidateDiscovery(){
-  if(!provider){console.log('GF Auto TikTok Radar V0.5.6 discovery disabled: SOCQ_API_KEY missing');return}
+  if(!provider){console.log('GF Auto TikTok Radar V0.5.7 discovery disabled: SOCQ_API_KEY missing');return}
   setTimeout(()=>void runCandidateDiscovery(),15_000)
   setInterval(()=>void runCandidateDiscovery(),Math.max(60*60_000,DISCOVERY_MS))
-  console.log(JSON.stringify({event:'candidate_discovery_enabled',queries:QUERIES,interval_ms:DISCOVERY_MS,version:'0.5.6'}))
+  console.log(JSON.stringify({event:'candidate_discovery_enabled',queries:QUERIES,interval_ms:DISCOVERY_MS,version:'0.5.7'}))
 }
