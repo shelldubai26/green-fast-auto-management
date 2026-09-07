@@ -7,6 +7,7 @@ export type WatchAccount = {
   watch_tier: WatchTier
   live_monitor: boolean
   video_comment_monitor: boolean
+  scan_interval_minutes: number | null
   country_code: string | null
   city: string | null
   market_scope: string | null
