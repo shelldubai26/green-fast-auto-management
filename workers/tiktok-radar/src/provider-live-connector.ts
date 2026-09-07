@@ -15,7 +15,7 @@ export class TikTokLiveConnectorPool {
     const key = username.replace(/^@/, '')
     let slot = this.slots.get(key)
     if (slot) return slot
-    const connection = new TikTokLiveConnection(key, this.signApiKey ? { signApiKey: this.signApiKey } : undefined)
+    const connection = new TikTokLiveConnection(key, this.signApiKey ? { signApiKey: this.signApiKey } : {})
     slot = { connection, buffer: [], connecting: null }
     connection.on(WebcastEvent.CHAT, (data: any) => {
       const now = new Date().toISOString()
