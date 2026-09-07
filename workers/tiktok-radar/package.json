@@ -1,0 +1,21 @@
+{
+  "name": "gfauto-tiktok-radar-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.57.4",
+    "tiktok-live-connector": "2.4.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "~5.6.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
