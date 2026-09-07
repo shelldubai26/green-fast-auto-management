@@ -18,13 +18,12 @@ const provider = new HttpTikTokProvider(PROVIDER_BASE_URL, PROVIDER_TOKEN || und
 
 const tierMinutes: Record<string, number> = { A: 10, B: 30, C: 120 }
 const intentPattern = /(prix|combien|acheter|achat|disponible|stock|cr[eé]dit|financement|acompte|whatsapp|contact|adresse|o[uù]|venir voir|visite|rdv|prado|land cruiser|jetour|t2|x5|suv)/i
-
 const isCandidate = (c: NormalizedComment) => c.text.trim().length >= 2 && intentPattern.test(c.text)
 
 async function loadWatchlist(): Promise<WatchAccount[]> {
   const { data, error } = await supabase
     .from('tiktok_watchlist')
-    .select('id,username,display_name,watch_tier,monitor_live,monitor_video_comments,country_code,city,market_scope,is_active')
+    .select('id,username,display_name,watch_tier,live_monitor,video_comment_monitor,country_code,city,market_scope,is_active')
     .eq('is_active', true)
     .eq('country_code', 'CI')
   if (error) throw error
@@ -49,56 +48,54 @@ async function due(account: WatchAccount, channel: 'live' | 'video_comment') {
 }
 
 async function saveState(account: WatchAccount, channel: 'live' | 'video_comment', patch: Record<string, unknown>) {
+  const now = new Date().toISOString()
   const { error } = await supabase.from('tiktok_watcher_state').upsert({
     watchlist_id: account.id,
     channel,
     provider: provider.name,
-    last_checked_at: new Date().toISOString(),
+    last_checked_at: now,
     ...patch,
   }, { onConflict: 'watchlist_id,channel' })
   if (error) throw error
+  const watchPatch: Record<string, string> = { last_scan_at: now }
+  if (channel === 'live' && patch.live_status === true) watchPatch.last_live_seen_at = now
+  if (channel === 'video_comment') watchPatch.last_content_seen_at = now
+  await supabase.from('tiktok_watchlist').update(watchPatch).eq('id', account.id)
 }
 
 async function ingest(account: WatchAccount, comments: NormalizedComment[]) {
-  const rows = comments.filter(isCandidate).map(c => ({
-    platform: 'tiktok',
-    tiktok_user_id: c.userId || null,
-    username: c.username,
-    display_name: c.displayName || null,
-    source_type: c.sourceType,
-    source_account: c.sourceAccount || account.username,
-    source_url: c.sourceUrl || null,
-    source_content_id: c.sourceContentId || c.externalId,
-    original_text: c.text,
-    intent_score: 35,
-    status: 'new',
-    detected_country_code: account.country_code || 'CI',
-    detected_city: account.city || 'Abidjan',
-    market_scope: account.market_scope || 'abidjan_auto',
-    geo_confidence: 75,
-    metadata: { provider: provider.name, external_comment_id: c.externalId, ...(c.metadata || {}) },
-    first_seen_at: c.createdAt,
-    last_seen_at: c.createdAt,
-  }))
-  if (!rows.length) return 0
-  const { error } = await supabase.from('social_leads').upsert(rows, {
-    onConflict: 'platform,username,source_type,source_content_id,md5(original_text)',
-    ignoreDuplicates: true,
-  })
-  if (error) {
-    // The expression index cannot be targeted by PostgREST onConflict. Fall back to row inserts.
-    let inserted = 0
-    for (const row of rows) {
-      const { error: e } = await supabase.from('social_leads').insert(row)
-      if (!e) inserted++
+  let inserted = 0
+  for (const c of comments.filter(isCandidate)) {
+    const row = {
+      platform: 'tiktok',
+      source_event_id: `${c.sourceType}:${c.sourceAccount || account.username}:${c.externalId}`,
+      tiktok_user_id: c.userId || null,
+      username: c.username,
+      display_name: c.displayName || null,
+      source_type: c.sourceType,
+      source_account: c.sourceAccount || account.username,
+      source_url: c.sourceUrl || null,
+      source_content_id: c.sourceContentId || null,
+      original_text: c.text,
+      intent_score: 35,
+      status: 'new',
+      detected_country_code: account.country_code || 'CI',
+      detected_city: account.city || 'Abidjan',
+      market_scope: account.market_scope || 'abidjan_auto',
+      geo_confidence: 75,
+      metadata: { provider: provider.name, external_comment_id: c.externalId, ...(c.metadata || {}) },
+      first_seen_at: c.createdAt,
+      last_seen_at: c.createdAt,
     }
-    return inserted
+    const { error } = await supabase.from('social_leads').insert(row)
+    if (!error) inserted++
+    else if (error.code !== '23505') console.error('lead_insert_error', error.message)
   }
-  return rows.length
+  return inserted
 }
 
 async function scanLive(account: WatchAccount) {
-  if (!account.monitor_live || !(await due(account, 'live'))) return
+  if (!account.live_monitor || !(await due(account, 'live'))) return
   const state = await getState(account.id, 'live')
   try {
     const live = await provider.isLive(account.username)
@@ -116,7 +113,7 @@ async function scanLive(account: WatchAccount) {
 }
 
 async function scanVideos(account: WatchAccount) {
-  if (!account.monitor_video_comments || !(await due(account, 'video_comment'))) return
+  if (!account.video_comment_monitor || !(await due(account, 'video_comment'))) return
   const state = await getState(account.id, 'video_comment')
   try {
     const videos = await provider.listRecentVideos(account.username, account.watch_tier === 'A' ? 8 : account.watch_tier === 'B' ? 5 : 3)
