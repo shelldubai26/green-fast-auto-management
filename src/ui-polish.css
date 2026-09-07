@@ -1,0 +1,65 @@
+/* Green Fast UI polish — TikTok account analytics + mobile vehicle detail */
+
+/* TikTok account card: turn the account area into a compact command card */
+.lsa-tiktok-account{grid-template-columns:minmax(0,1fr) minmax(260px,330px)!important;gap:18px 28px!important;padding:22px 24px!important;align-items:start!important}
+.lsa-tiktok-account h3{font-size:23px!important;margin:7px 0 3px!important;letter-spacing:-.025em}
+.lsa-tiktok-account>div>p{margin:0!important;font-size:13px!important}
+.lsa-date-range{margin-top:16px!important;padding:13px 14px!important;border-radius:14px!important;display:grid!important;grid-template-columns:auto minmax(0,1fr)!important;grid-template-areas:'label presets' 'dates dates' 'caption caption'!important;gap:9px 14px!important;align-items:center!important}
+.lsa-date-range>.lsa-eyebrow{grid-area:label;white-space:nowrap}
+.lsa-range-presets{grid-area:presets;justify-content:flex-end!important;gap:6px!important;margin:0!important}
+.lsa-range-presets button{padding:7px 12px!important;transition:.15s ease}
+.lsa-range-presets button:hover{border-color:#b9c9bf!important;background:#fbfdfc!important}
+.lsa-range-presets button.active{box-shadow:0 3px 10px rgba(23,51,35,.14)}
+.lsa-range-inputs{grid-area:dates;display:grid!important;grid-template-columns:minmax(150px,1fr) 22px minmax(150px,1fr)!important;gap:8px!important;max-width:430px!important;align-items:end!important}
+.lsa-range-inputs input{width:100%!important;box-sizing:border-box!important;padding:8px 10px!important}
+.lsa-range-inputs>span{text-align:center;padding-bottom:8px!important}
+.lsa-date-range>small{grid-area:caption;margin:0!important}
+.lsa-content-metrics{display:grid!important;grid-template-columns:repeat(6,minmax(0,1fr))!important;gap:8px!important;margin-top:12px!important}
+.lsa-content-metrics>div{min-width:0;background:#f8faf9;border:1px solid #edf2ef;border-radius:12px;padding:11px 10px;display:flex;flex-direction:column;gap:3px}
+.lsa-content-metrics b{font-size:20px;line-height:1.1;letter-spacing:-.025em;color:#142219;overflow:hidden;text-overflow:ellipsis}
+.lsa-content-metrics span{font-size:10px;color:#758179;white-space:nowrap}
+.lsa-tiktok-account>div>small:not(.lsa-status){display:block;margin-top:9px;color:#849087;font-size:10px}
+.lsa-tiktok-actions{display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important;align-content:start!important;width:min(100%,330px)!important;max-width:none!important;padding-top:2px}
+.lsa-tiktok-actions .lsa-connected{grid-column:1/-1;justify-self:end}
+.lsa-tiktok-actions .lsa-live{grid-column:1/-1;justify-content:center}
+.lsa-tiktok-actions .lsa-secondary{justify-content:center}
+
+/* Vehicle detail: keep full vehicle photos visible on phones */
+.modal.detail{width:min(960px,100%)!important;max-width:100%!important}
+.modal.detail .vehicle-gallery{width:100%;min-width:0}
+.modal.detail .gallery-main{width:100%!important;height:min(56vw,420px)!important;min-height:240px;background:#f4f7f5!important;display:flex!important;align-items:center!important;justify-content:center!important;overflow:hidden!important}
+.modal.detail .gallery-main img{width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important;object-fit:contain!important;object-position:center!important}
+.modal.detail .gallery-thumbs{max-width:100%;overscroll-behavior-x:contain;scroll-snap-type:x proximity}
+.modal.detail .gallery-thumbs button{scroll-snap-align:start}
+.modal.detail .gallery-thumbs img{object-fit:cover}
+
+@media(max-width:1100px){
+ .lsa-tiktok-account{grid-template-columns:1fr!important}
+ .lsa-tiktok-actions{grid-template-columns:auto auto auto!important;width:100%!important;justify-content:start!important}
+ .lsa-tiktok-actions .lsa-connected,.lsa-tiktok-actions .lsa-live{grid-column:auto!important;justify-self:start!important}
+ .lsa-content-metrics{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+}
+
+@media(max-width:720px){
+ .lsa-tiktok-account{padding:16px!important;border-radius:16px!important;gap:14px!important}
+ .lsa-date-range{display:block!important;padding:12px!important}
+ .lsa-range-presets{justify-content:flex-start!important;margin:9px 0 11px!important}
+ .lsa-range-inputs{display:grid!important;grid-template-columns:1fr 14px 1fr!important;max-width:none!important}
+ .lsa-date-range>small{display:block;margin-top:9px!important}
+ .lsa-content-metrics{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ .lsa-tiktok-actions{grid-template-columns:1fr 1fr!important;width:100%!important}
+ .lsa-tiktok-actions .lsa-connected{grid-column:1/-1!important;width:max-content}
+ .lsa-tiktok-actions .lsa-live{grid-column:1/-1!important}
+ .modal.detail{padding:14px!important}
+ .modal.detail .modal-head{position:sticky;top:-14px;z-index:4;background:#fff;padding-top:14px}
+ .modal.detail .gallery-main{height:min(68vw,300px)!important;min-height:210px!important;border-radius:10px!important}
+ .modal.detail .gallery-thumbs{gap:6px!important;padding-bottom:6px!important}
+ .modal.detail .gallery-thumbs button{width:64px!important;height:52px!important;flex:0 0 64px!important}
+ .modal.detail .gallery-thumbs img{width:100%!important;height:100%!important}
+ .modal.detail .detail-grid{grid-template-columns:1fr 1fr!important;gap:8px!important}
+}
+
+@media(max-width:390px){
+ .modal.detail .gallery-main{height:72vw!important;min-height:200px!important}
+ .modal.detail .detail-grid{grid-template-columns:1fr!important}
+}
