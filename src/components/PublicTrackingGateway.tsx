@@ -1,0 +1,16 @@
+import {useEffect,useState} from 'react'
+import {CarFront,CheckCircle2,MessageCircle,ShieldCheck} from 'lucide-react'
+import {supabase} from '../lib/supabase'
+import './PublicTrackingGateway.css'
+
+type Gateway={code:string;content_id:string;profile_id:string;title:string|null;seller_name:string;whatsapp:string}
+export default function PublicTrackingGateway(){
+ const code=decodeURIComponent(window.location.pathname.split('/').pop()||'').toUpperCase()
+ const[info,setInfo]=useState<Gateway|null>(null),[whatsapp,setWhatsapp]=useState(''),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[error,setError]=useState('')
+ useEffect(()=>{void load()},[code])
+ const load=async()=>{try{setLoading(true);setError('');if(!supabase)throw new Error('Service indisponible');const{data,error}=await supabase.rpc('gf_public_tracking_gateway',{p_code:code,p_user_agent:navigator.userAgent,p_referrer:document.referrer||null});if(error)throw error;const row=Array.isArray(data)?data[0]:data;if(!row)throw new Error('Lien invalide ou expiré');setInfo(row as Gateway)}catch(e:any){setError(e?.message||'Lien invalide')}finally{setLoading(false)}}
+ const submit=async(e:React.FormEvent)=>{e.preventDefault();if(!info||!supabase)return;try{setSaving(true);setError('');const{data,error}=await supabase.rpc('gf_public_capture_content_lead',{p_code:code,p_name:'',p_whatsapp:whatsapp.trim(),p_model:null});if(error)throw error;const row=Array.isArray(data)?data[0]:data;const dest=String(row?.whatsapp_destination||info.whatsapp).replace(/\D/g,'');const text=`Bonjour Green Fast Auto, je viens de TikTok. Réf: ${code}`;window.location.href=`https://wa.me/${dest}?text=${encodeURIComponent(text)}`}catch(e:any){setError(e?.message||'Impossible de continuer')}finally{setSaving(false)}}
+ if(loading)return <main className="tg-page"><div className="tg-card tg-loading">Chargement…</div></main>
+ if(error&&!info)return <main className="tg-page"><div className="tg-card"><div className="tg-brand"><CarFront/><b>GREEN FAST AUTO</b></div><h1>Lien indisponible</h1><p>{error}</p></div></main>
+ return <main className="tg-page"><section className="tg-card tg-fast"><div className="tg-brand"><CarFront/><b>GREEN FAST AUTO</b></div><span className="tg-badge"><CheckCircle2 size={15}/> TikTok</span><h1>Une question sur cette voiture ?</h1><p className="tg-sub">Entrez seulement votre WhatsApp. La vidéo et le conseiller d’origine sont enregistrés automatiquement.</p>{info?.title&&<div className="tg-video"><small>VIDÉO D’ORIGINE</small><b>{info.title}</b></div>}<form onSubmit={submit}><label>Votre WhatsApp<input autoFocus autoComplete="tel" value={whatsapp} onChange={e=>setWhatsapp(e.target.value)} placeholder="Ex. 07 00 00 00 00" required inputMode="tel"/></label>{error&&<div className="tg-error">{error}</div>}<button disabled={saving||whatsapp.replace(/\D/g,'').length<8}><MessageCircle size={18}/>{saving?'Un instant…':'Continuer sur WhatsApp'}</button></form><div className="tg-trust"><ShieldCheck size={16}/><span>Votre numéro sert uniquement au suivi commercial Green Fast Auto.</span></div><footer><b>{info?.seller_name||'Green Fast Auto'}</b><span>Tél. / WhatsApp : 07 00 73 71 18</span></footer></section></main>
+}

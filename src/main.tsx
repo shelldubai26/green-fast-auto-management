@@ -3,6 +3,8 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import PublicShowroomV2 from './components/PublicShowroomV2'
 import PublicLegalPage from './components/PublicLegalPage'
+import PublicTrackingGateway from './components/PublicTrackingGateway'
+import PublicEmployeeBioGateway from './components/PublicEmployeeBioGateway'
 import './styles.css'
 import './extras.css'
 import './table-fixes.css'
@@ -13,6 +15,8 @@ const path=window.location.pathname
 const isTerms=path==='/terms'||path.startsWith('/terms/')
 const isPrivacy=path==='/privacy'||path.startsWith('/privacy/')
 const isShowroom=path.startsWith('/showroom')
+const isEmployeeBio=path.startsWith('/go/')
+const isTracking=path.startsWith('/t/')
 
 function PublicShowroomWithLegalLinks(){
  return <>
@@ -29,5 +33,5 @@ function PublicShowroomWithLegalLinks(){
  </>
 }
 
-const content=isTerms?<PublicLegalPage kind="terms"/>:isPrivacy?<PublicLegalPage kind="privacy"/>:isShowroom?<PublicShowroomWithLegalLinks/>:<App/>
+const content=isTerms?<PublicLegalPage kind="terms"/>:isPrivacy?<PublicLegalPage kind="privacy"/>:isShowroom?<PublicShowroomWithLegalLinks/>:isEmployeeBio?<PublicEmployeeBioGateway/>:isTracking?<PublicTrackingGateway/>:<App/>
 ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode>{content}</React.StrictMode>)
