@@ -18,15 +18,15 @@ export class TikTokLiveConnectorPool {
 
   async probeProvider() {
     if (!this.signApiKey) throw new Error('euler_api_key_missing')
-    const connection = new TikTokLiveConnection('provider-health-probe', {
-      signApiKey: this.signApiKey,
-      processInitialData: false,
+    const response = await fetch('https://api.eulerstream.com/accounts/me/rate_limits', {
+      headers: { 'X-Api-Key': this.signApiKey },
     })
-    const response = await connection.apiClient.webcast.getRateLimits()
+    let data: unknown = null
+    try { data = await response.json() } catch { data = null }
     return {
-      ok: response.status >= 200 && response.status < 300,
+      ok: response.ok,
       status: response.status,
-      data: response.data,
+      data,
     }
   }
 
