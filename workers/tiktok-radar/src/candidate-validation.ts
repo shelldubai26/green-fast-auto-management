@@ -8,6 +8,9 @@ type Suggestion = {
   auto_relevance_score: number | null
   purchase_signal_count: number | null
   suggested_priority: number | null
+  discovery_score: number | null
+  queue_score: number | null
+  validation_status: string | null
 }
 
 const SUPABASE_URL = process.env.SUPABASE_URL || ''
@@ -57,19 +60,21 @@ async function validateOne(s: Suggestion) {
       p_provider_error: null,
       p_validation_score: score,
       p_validation_notes: {
-        gate: 'v0.5.8',
-        criteria: 'recent_public_video_and_score',
+        gate: 'v0.5.9',
+        criteria: 'priority_queue_then_recent_public_video_and_score',
         threshold: 45,
+        queue_score: s.queue_score || 0,
         suggested_priority: s.suggested_priority || 0,
+        discovery_score: s.discovery_score || 0,
       },
     })
-    console.log(JSON.stringify({ event: 'candidate_validation', username: s.username, videos: count, score, valid, version: '0.5.8' }))
+    console.log(JSON.stringify({ event: 'candidate_validation', username: s.username, queue_score: s.queue_score || 0, videos: count, score, valid, version: '0.5.9' }))
     return 'ok' as const
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     if (isCreditError(message)) {
       creditBlockedUntil = Date.now() + CREDIT_COOLDOWN_MS
-      console.error('candidate_validation_credit_blocked', JSON.stringify({ username: s.username, cooldown_ms: CREDIT_COOLDOWN_MS, retry_after: new Date(creditBlockedUntil).toISOString(), version: '0.5.8' }))
+      console.error('candidate_validation_credit_blocked', JSON.stringify({ username: s.username, queue_score: s.queue_score || 0, cooldown_ms: CREDIT_COOLDOWN_MS, retry_after: new Date(creditBlockedUntil).toISOString(), version: '0.5.9' }))
       return 'credit_blocked' as const
     }
     await rpc('radar_worker_save_suggestion_validation', {
@@ -81,7 +86,7 @@ async function validateOne(s: Suggestion) {
       p_provider_name: provider.name,
       p_provider_error: message,
       p_validation_score: 0,
-      p_validation_notes: { gate: 'v0.5.8' },
+      p_validation_notes: { gate: 'v0.5.9', queue_score: s.queue_score || 0 },
     })
     console.error('candidate_validation_error', s.username, message)
     return 'error' as const
@@ -91,7 +96,7 @@ async function validateOne(s: Suggestion) {
 async function validationCycle() {
   if (!provider || !RADAR_WORKER_TOKEN) return
   if (Date.now() < creditBlockedUntil) {
-    console.log(JSON.stringify({ event: 'candidate_validation_paused', reason: 'socq_credit_circuit_open', retry_after: new Date(creditBlockedUntil).toISOString(), version: '0.5.8' }))
+    console.log(JSON.stringify({ event: 'candidate_validation_paused', reason: 'socq_credit_circuit_open', retry_after: new Date(creditBlockedUntil).toISOString(), version: '0.5.9' }))
     return
   }
   const suggestions = await rpc<Suggestion[]>('radar_worker_get_suggestions', {
@@ -104,12 +109,21 @@ async function validationCycle() {
     const result = await validateOne(suggestion)
     if (result === 'credit_blocked') break
   }
-  console.log(JSON.stringify({ event: 'candidate_validation_cycle', suggestions: suggestions?.length || 0, attempted, provider: provider.name, batch: VALIDATION_BATCH, credit_circuit_open: Date.now() < creditBlockedUntil, version: '0.5.8' }))
+  console.log(JSON.stringify({
+    event: 'candidate_validation_cycle',
+    suggestions: suggestions?.length || 0,
+    attempted,
+    queue: (suggestions || []).map(s => ({ username: s.username, queue_score: s.queue_score || 0 })).slice(0, VALIDATION_BATCH),
+    provider: provider.name,
+    batch: VALIDATION_BATCH,
+    credit_circuit_open: Date.now() < creditBlockedUntil,
+    version: '0.5.9',
+  }))
 }
 
 export function startCandidateValidation() {
   if (!provider) {
-    console.log(JSON.stringify({ event: 'candidate_validation_disabled', reason: 'SOCQ_API_KEY_missing', version: '0.5.8' }))
+    console.log(JSON.stringify({ event: 'candidate_validation_disabled', reason: 'SOCQ_API_KEY_missing', version: '0.5.9' }))
     return
   }
   void validationCycle().catch(error => console.error('candidate_validation_cycle_error', error))
