@@ -16,6 +16,20 @@ export class TikTokLiveConnectorPool {
     if (signApiKey) SignConfig.apiKey = signApiKey
   }
 
+  async probeProvider() {
+    if (!this.signApiKey) throw new Error('euler_api_key_missing')
+    const connection = new TikTokLiveConnection('provider-health-probe', {
+      signApiKey: this.signApiKey,
+      processInitialData: false,
+    })
+    const response = await connection.apiClient.webcast.getRateLimits()
+    return {
+      ok: response.status >= 200 && response.status < 300,
+      status: response.status,
+      data: response.data,
+    }
+  }
+
   private slot(username: string) {
     if (!this.signApiKey) throw new Error('euler_api_key_missing')
     const key = username.replace(/^@/, '')
