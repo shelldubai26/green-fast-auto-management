@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Activity, AlertTriangle, Radio, Video } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import type { Lang, Role } from '../lib/modules'
+import './TikTokWatcherHealth.css'
 
 type StateRow={id:string;channel:'live'|'video_comment';provider:string|null;live_status:boolean|null;last_checked_at:string|null;last_success_at:string|null;last_error:string|null;last_items_seen:number}
 
