@@ -7,6 +7,7 @@ import TikTokIntentRulesPanel from './TikTokIntentRulesPanel'
 import TikTokRadarPilotMetrics from './TikTokRadarPilotMetrics'
 import TikTokWatcherHealth from './TikTokWatcherHealth'
 import './TikTokLeadRadar.css'
+import './TikTokLeadRadarV04.css'
 
 type LeadStatus='new'|'high_intent'|'assigned'|'contact_attempted'|'replied'|'contact_captured'|'converted'|'invalid'
 type SocialLead={id:string;username:string;display_name:string|null;source_type:'live'|'video_comment';source_account:string|null;source_url:string|null;original_text:string;interested_model:string|null;intent_label:string|null;intent_score:number;occurrence_count:number;last_seen_at:string;status:LeadStatus;assigned_to:string|null;notes:string|null}
