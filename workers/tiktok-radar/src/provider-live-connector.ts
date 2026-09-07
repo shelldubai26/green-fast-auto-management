@@ -1,4 +1,4 @@
-import { TikTokLiveConnection, WebcastEvent } from 'tiktok-live-connector'
+import { SignConfig, TikTokLiveConnection, WebcastEvent } from 'tiktok-live-connector'
 import type { NormalizedComment } from './types.js'
 
 type Slot = {
@@ -9,13 +9,22 @@ type Slot = {
 
 export class TikTokLiveConnectorPool {
   private slots = new Map<string, Slot>()
-  constructor(private signApiKey?: string) {}
+  readonly hasApiKey: boolean
+
+  constructor(private signApiKey?: string) {
+    this.hasApiKey = Boolean(signApiKey)
+    if (signApiKey) SignConfig.apiKey = signApiKey
+  }
 
   private slot(username: string) {
+    if (!this.signApiKey) throw new Error('euler_api_key_missing')
     const key = username.replace(/^@/, '')
     let slot = this.slots.get(key)
     if (slot) return slot
-    const connection = new TikTokLiveConnection(key, this.signApiKey ? { signApiKey: this.signApiKey } : {})
+    const connection = new TikTokLiveConnection(key, {
+      signApiKey: this.signApiKey,
+      processInitialData: false,
+    })
     slot = { connection, buffer: [], connecting: null }
     connection.on(WebcastEvent.CHAT, (data: any) => {
       const now = new Date().toISOString()
