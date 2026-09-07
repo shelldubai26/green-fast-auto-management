@@ -38,6 +38,7 @@ export class TikTokLiveConnectorPool {
     const connection = new TikTokLiveConnection(key, {
       signApiKey: this.signApiKey,
       processInitialData: false,
+      fetchRoomInfoOnConnect: true,
     })
     slot = { connection, buffer: [], connecting: null }
     connection.on(WebcastEvent.CHAT, (data: any) => {
@@ -63,18 +64,40 @@ export class TikTokLiveConnectorPool {
     return slot
   }
 
+  private isOfflineError(err: unknown) {
+    const name = typeof err === 'object' && err && 'name' in err ? String((err as any).name || '') : ''
+    const message = err instanceof Error ? err.message : String(err)
+    return name === 'UserOfflineError' || /isn['’]?t online|user offline|not online|live (?:has )?ended|room.*status.*4/i.test(message)
+  }
+
   async isLive(username: string) {
     const key = username.replace(/^@/, '')
     const slot = this.slot(key)
-    const live = await slot.connection.fetchIsLive(key)
-    if (live && !slot.connection.isConnected && !slot.connecting) {
-      slot.connecting = slot.connection.connect().catch(err => {
-        console.error('live_connect_error', key, err instanceof Error ? err.message : String(err))
-      }).finally(() => { slot.connecting = null })
-      await slot.connecting
+    try {
+      const live = await slot.connection.fetchIsLive(key)
+      if (live && !slot.connection.isConnected && !slot.connecting) {
+        slot.connecting = slot.connection.connect().finally(() => { slot.connecting = null })
+        await slot.connecting
+      }
+      if (!live && slot.connection.isConnected) await slot.connection.disconnect()
+      return Boolean(live)
+    } catch (statusErr) {
+      // V0.5.3 fallback: if the composite LIVE-status lookup fails while Euler itself is healthy,
+      // try a real connection. The connector throws UserOfflineError when room status is 4.
+      try {
+        if (!slot.connection.isConnected && !slot.connecting) {
+          slot.connecting = slot.connection.connect().finally(() => { slot.connecting = null })
+          await slot.connecting
+        }
+        if (slot.connection.isConnected) return true
+      } catch (connectErr) {
+        if (this.isOfflineError(connectErr)) return false
+        const statusMessage = statusErr instanceof Error ? statusErr.message : String(statusErr)
+        const connectMessage = connectErr instanceof Error ? connectErr.message : String(connectErr)
+        throw new Error(`live_status_and_connect_failed | status=${statusMessage} | connect=${connectMessage}`)
+      }
+      throw statusErr
     }
-    if (!live && slot.connection.isConnected) await slot.connection.disconnect()
-    return Boolean(live)
   }
 
   async readLiveComments(username: string, since?: string | null) {
