@@ -55,6 +55,9 @@ on public.social_leads(platform, username, source_type, coalesce(source_content_
 alter table public.tiktok_watchlist enable row level security;
 alter table public.social_leads enable row level security;
 
+grant select, insert, update, delete on table public.tiktok_watchlist to authenticated;
+grant select, insert, update on table public.social_leads to authenticated;
+
 drop policy if exists tiktok_watchlist_read on public.tiktok_watchlist;
 create policy tiktok_watchlist_read on public.tiktok_watchlist
 for select to authenticated using (true);
