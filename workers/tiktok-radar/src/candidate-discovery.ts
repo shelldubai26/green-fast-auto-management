@@ -6,6 +6,7 @@ const SUPABASE_PUBLISHABLE_KEY=process.env.SUPABASE_PUBLISHABLE_KEY||''
 const RADAR_WORKER_TOKEN=process.env.RADAR_WORKER_TOKEN||''
 const SOCQ_API_KEY=process.env.SOCQ_API_KEY||''
 const DISCOVERY_MS=Number(process.env.RADAR_DISCOVERY_MS||6*60*60_000)
+const CREDIT_COOLDOWN_MS=Number(process.env.RADAR_SOCQ_CREDIT_COOLDOWN_MS||6*60*60_000)
 const supabase=createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:false}})
 const provider=SOCQ_API_KEY?new SocQTikTokVideoProvider(SOCQ_API_KEY):null
 
@@ -41,16 +42,23 @@ async function rpc<T>(name:string,args:Record<string,unknown>):Promise<T>{
   const {data,error}=await supabase.rpc(name,args); if(error)throw error; return data as T
 }
 
+function isCreditError(message:string){return /socq_402|insufficient credits/i.test(message)}
 let running=false
+let creditBlockedUntil=0
 export async function runCandidateDiscovery(){
   if(running||!provider)return
+  if(Date.now()<creditBlockedUntil){
+    console.log(JSON.stringify({event:'candidate_discovery_paused',reason:'socq_credit_circuit_open',retry_after:new Date(creditBlockedUntil).toISOString(),version:'0.5.8'}))
+    return
+  }
   running=true
   try{
     const {data:watch}=await supabase.from('tiktok_watchlist').select('username')
     const existing=new Set((watch||[]).map((x:any)=>String(x.username||'').toLowerCase()))
-    let seenVideos=0, upserts=0, skippedExisting=0, rejectedLowQuality=0
+    let seenVideos=0, upserts=0, skippedExisting=0, rejectedLowQuality=0, queriesAttempted=0
     for(const query of QUERIES){
       try{
+        queriesAttempted++
         const videos=await provider.searchPublicVideos(query,20)
         seenVideos+=videos.length
         const bestByUser=new Map<string,SocQDiscoveryVideo>()
@@ -63,34 +71,37 @@ export async function runCandidateDiscovery(){
           const username=v.username.toLowerCase()
           if(existing.has(username)){skippedExisting++;continue}
           const score=candidateScore(v)
-          // Require actual automotive evidence from the creator/video, not just a search hit.
           if(score.auto<20 || score.discovery<45){rejectedLowQuality++;continue}
           const priority=Math.min(95,Math.max(45,Math.round(score.discovery)))
           const tier=priority>=80?'A':priority>=60?'B':'C'
           await rpc<string>('radar_worker_upsert_watchlist_suggestion',{p_token:RADAR_WORKER_TOKEN,p_row:{
-            username,
-            display_name:v.displayName||null,
-            country_code:'CI',city:'Abidjan',account_type:'auto',
-            source_type:'tiktok_search',source_url:v.videoUrl||null,
-            geo_score:score.geo,auto_relevance_score:score.auto,
-            purchase_signal_count:0,live_signal_count:0,video_signal_count:1,
-            suggested_priority:priority,suggested_tier:tier,
-            provider_name:'socq',discovery_query:query,discovery_score:score.discovery,
-            discovered_video_url:v.videoUrl||null,discovered_caption:(v.caption||'').slice(0,1000),
+            username,display_name:v.displayName||null,country_code:'CI',city:'Abidjan',account_type:'auto',
+            source_type:'tiktok_search',source_url:v.videoUrl||null,geo_score:score.geo,auto_relevance_score:score.auto,
+            purchase_signal_count:0,live_signal_count:0,video_signal_count:1,suggested_priority:priority,suggested_tier:tier,
+            provider_name:'socq',discovery_query:query,discovery_score:score.discovery,discovered_video_url:v.videoUrl||null,
+            discovered_caption:(v.caption||'').slice(0,1000),
             discovered_metrics:{followers:v.followers,views:v.views,likes:v.likes,comments:v.comments,shares:v.shares,created_at:v.createdAt,engagement_score:score.engagement,account_auto_score:score.accountAuto},
             evidence:{source:'socq_tiktok_search',query,video_url:v.videoUrl||null,caption:(v.caption||'').slice(0,500),auto_score:score.auto,geo_score:score.geo,engagement_score:score.engagement}
           }})
           upserts++
         }
-      }catch(e){console.error('discovery_query_error',query,e instanceof Error?e.message:String(e))}
+      }catch(e){
+        const message=e instanceof Error?e.message:String(e)
+        console.error('discovery_query_error',query,message)
+        if(isCreditError(message)){
+          creditBlockedUntil=Date.now()+CREDIT_COOLDOWN_MS
+          console.error('candidate_discovery_credit_blocked',JSON.stringify({query,cooldown_ms:CREDIT_COOLDOWN_MS,retry_after:new Date(creditBlockedUntil).toISOString(),version:'0.5.8'}))
+          break
+        }
+      }
     }
-    console.log(JSON.stringify({event:'candidate_discovery',queries:QUERIES.length,seen_videos:seenVideos,suggestions_upserted:upserts,skipped_existing:skippedExisting,rejected_low_quality:rejectedLowQuality,interval_ms:DISCOVERY_MS,version:'0.5.7'}))
+    console.log(JSON.stringify({event:'candidate_discovery',queries:QUERIES.length,queries_attempted:queriesAttempted,seen_videos:seenVideos,suggestions_upserted:upserts,skipped_existing:skippedExisting,rejected_low_quality:rejectedLowQuality,credit_circuit_open:Date.now()<creditBlockedUntil,interval_ms:DISCOVERY_MS,version:'0.5.8'}))
   }finally{running=false}
 }
 
 export function startCandidateDiscovery(){
-  if(!provider){console.log('GF Auto TikTok Radar V0.5.7 discovery disabled: SOCQ_API_KEY missing');return}
+  if(!provider){console.log('GF Auto TikTok Radar V0.5.8 discovery disabled: SOCQ_API_KEY missing');return}
   setTimeout(()=>void runCandidateDiscovery(),15_000)
   setInterval(()=>void runCandidateDiscovery(),Math.max(60*60_000,DISCOVERY_MS))
-  console.log(JSON.stringify({event:'candidate_discovery_enabled',queries:QUERIES,interval_ms:DISCOVERY_MS,version:'0.5.7'}))
+  console.log(JSON.stringify({event:'candidate_discovery_enabled',queries:QUERIES,interval_ms:DISCOVERY_MS,version:'0.5.8'}))
 }
