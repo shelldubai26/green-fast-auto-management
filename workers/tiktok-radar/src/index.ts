@@ -18,6 +18,11 @@ const videoProvider=VIDEO_PROVIDER_BASE_URL?new HttpTikTokProvider(VIDEO_PROVIDE
 const intentEngine=new IntentEngine(supabase,RADAR_WORKER_TOKEN)
 const tierMinutes:Record<string,number>={A:10,B:30,C:120}
 
+let lastEulerProbeAt=0
+let eulerProbeHealthy=false
+let eulerProbeError:string|null=null
+const EULER_PROBE_TTL_MS=10*60_000
+
 type Channel='live'|'video_comment'
 async function rpc<T>(name:string,args:Record<string,unknown>):Promise<T>{const{data,error}=await supabase.rpc(name,args);if(error)throw error;return data as T}
 async function loadWatchlist(){return await rpc<WatchAccount[]>('radar_worker_get_watchlist',{p_token:RADAR_WORKER_TOKEN})}
@@ -39,10 +44,27 @@ async function saveProviderHealth(args:{providerKey:string;providerName:string;c
     p_metadata:args.metadata||{},
   })
 }
+async function probeEulerProvider(force=false){
+  if(!EULER_SIGN_API_KEY){eulerProbeHealthy=false;eulerProbeError='euler_api_key_missing';return false}
+  if(!force&&Date.now()-lastEulerProbeAt<EULER_PROBE_TTL_MS)return eulerProbeHealthy
+  lastEulerProbeAt=Date.now()
+  try{
+    const result=await liveProvider.probeProvider()
+    eulerProbeHealthy=Boolean(result.ok)
+    eulerProbeError=result.ok?null:`euler_probe_http_${result.status}`
+    console.log(JSON.stringify({event:'euler_probe',ok:eulerProbeHealthy,http_status:result.status,version:'0.5.3'}))
+  }catch(e){
+    eulerProbeHealthy=false
+    eulerProbeError=e instanceof Error?e.message:String(e)
+    console.error('euler_probe_error',eulerProbeError)
+  }
+  return eulerProbeHealthy
+}
 async function publishProviderReadiness(){
+  const eulerReady=await probeEulerProvider()
   await Promise.all([
-    saveProviderHealth({providerKey:'euler_live',providerName:'EulerStream / TikTok Live Connector',channel:'live',enabled:true,ready:Boolean(EULER_SIGN_API_KEY),status:EULER_SIGN_API_KEY?'configured':'missing_api_key',metadata:{env:'EULER_SIGN_API_KEY',version:'0.5.2'}}),
-    saveProviderHealth({providerKey:'video_http',providerName:'TikTok Video Comment Provider',channel:'video_comment',enabled:Boolean(VIDEO_PROVIDER_BASE_URL),ready:Boolean(VIDEO_PROVIDER_BASE_URL),status:VIDEO_PROVIDER_BASE_URL?'configured':'not_configured',metadata:{env_base_url:'RADAR_VIDEO_PROVIDER_BASE_URL',env_token:'RADAR_VIDEO_PROVIDER_TOKEN',version:'0.5.2'}}),
+    saveProviderHealth({providerKey:'euler_live',providerName:'EulerStream / TikTok Live Connector',channel:'live',enabled:true,ready:eulerReady,status:!EULER_SIGN_API_KEY?'missing_api_key':eulerReady?'healthy':'provider_auth_or_quota_error',lastError:eulerReady?null:eulerProbeError,metadata:{env:'EULER_SIGN_API_KEY',probe:'getRateLimits',version:'0.5.3'}}),
+    saveProviderHealth({providerKey:'video_http',providerName:'TikTok Video Comment Provider',channel:'video_comment',enabled:Boolean(VIDEO_PROVIDER_BASE_URL),ready:Boolean(VIDEO_PROVIDER_BASE_URL),status:VIDEO_PROVIDER_BASE_URL?'configured':'not_configured',metadata:{env_base_url:'RADAR_VIDEO_PROVIDER_BASE_URL',env_token:'RADAR_VIDEO_PROVIDER_TOKEN',version:'0.5.3'}}),
   ])
 }
 async function evaluateComments(comments:NormalizedComment[]){const out:Array<{comment:NormalizedComment;intent:IntentResult}>=[];for(const comment of comments){if(comment.text.trim().length<2)continue;const intent=await intentEngine.evaluate(comment.text);if(intent.matched)out.push({comment,intent})}return out}
@@ -51,6 +73,7 @@ async function ingest(a:WatchAccount,evaluated:Array<{comment:NormalizedComment;
 function normalizeLiveProviderError(message:string){
   if(/euler_api_key_missing/i.test(message)) return {error:'euler_api_key_missing',outcome:'provider_missing'}
   if(/401|403|unauthor|api.?key|quota|rate.?limit/i.test(message)) return {error:message,outcome:'provider_auth_or_quota_error'}
+  if(/Failed to retrieve live status from all sources/i.test(message) && eulerProbeHealthy) return {error:'account_live_status_unresolved',outcome:'account_lookup_failed'}
   return {error:message,outcome:'error'}
 }
 
@@ -77,15 +100,17 @@ async function scanLive(a:WatchAccount){
     const outcome=!live?'offline':items===0?'live_no_comments':candidates===0?'live_comments_no_intent':inserted>0?'live_new_leads':'live_existing_leads_updated'
     const now=new Date().toISOString()
     await saveState(a,'live',provider,{live_status:live,cursor_value:cursor,last_success_at:now,last_error:null,last_items_seen:items,last_candidates_found:candidates,last_inserted_count:inserted,last_outcome:outcome,consecutive_errors:0})
-    await finishRun(runId,{items_seen:items,candidates_found:candidates,inserted_count:inserted,error:null,outcome,live_status:live,metadata:{username:a.username,tier:a.watch_tier,scan_interval_minutes:a.scan_interval_minutes||tierMinutes[a.watch_tier],euler_key_configured:true}})
-    await saveProviderHealth({providerKey:'euler_live',providerName:'EulerStream / TikTok Live Connector',channel:'live',enabled:true,ready:true,status:'healthy',metadata:{last_username:a.username,last_outcome:outcome,version:'0.5.2'}})
-    console.log(JSON.stringify({event:'live_scan',username:a.username,live,items,candidates,new_leads:inserted,outcome,eulerKey:true}))
+    await finishRun(runId,{items_seen:items,candidates_found:candidates,inserted_count:inserted,error:null,outcome,live_status:live,metadata:{username:a.username,tier:a.watch_tier,scan_interval_minutes:a.scan_interval_minutes||tierMinutes[a.watch_tier],euler_key_configured:true,euler_probe_healthy:eulerProbeHealthy}})
+    console.log(JSON.stringify({event:'live_scan',username:a.username,live,items,candidates,new_leads:inserted,outcome,eulerKey:true,eulerProbeHealthy}))
   }catch(e){
     const raw=e instanceof Error?e.message:String(e)
     const normalized=normalizeLiveProviderError(raw)
     await saveState(a,'live',provider,{last_error:normalized.error,last_items_seen:0,last_candidates_found:0,last_inserted_count:0,last_outcome:normalized.outcome})
-    await finishRun(runId,{error:normalized.error,outcome:normalized.outcome,metadata:{username:a.username,euler_key_configured:true,raw_error:raw}})
-    await saveProviderHealth({providerKey:'euler_live',providerName:'EulerStream / TikTok Live Connector',channel:'live',enabled:true,ready:false,status:normalized.outcome,lastError:normalized.error,metadata:{last_username:a.username,version:'0.5.2'}})
+    await finishRun(runId,{error:normalized.error,outcome:normalized.outcome,metadata:{username:a.username,euler_key_configured:true,euler_probe_healthy:eulerProbeHealthy,raw_error:raw}})
+    if(normalized.outcome==='provider_auth_or_quota_error'){
+      eulerProbeHealthy=false;eulerProbeError=normalized.error;lastEulerProbeAt=0
+      await saveProviderHealth({providerKey:'euler_live',providerName:'EulerStream / TikTok Live Connector',channel:'live',enabled:true,ready:false,status:normalized.outcome,lastError:normalized.error,metadata:{last_username:a.username,version:'0.5.3'}})
+    }
     console.error('live_scan_error',a.username,normalized.outcome,normalized.error)
   }
 }
@@ -112,17 +137,17 @@ async function scanVideos(a:WatchAccount){
     const now=new Date().toISOString()
     await saveState(a,'video_comment',provider,{cursor_value:newest,last_success_at:now,last_error:null,last_items_seen:items,last_candidates_found:candidates,last_inserted_count:inserted,last_outcome:outcome,consecutive_errors:0})
     await finishRun(runId,{items_seen:items,candidates_found:candidates,inserted_count:inserted,error:null,outcome,metadata:{username:a.username,videos_scanned:videos.length}})
-    await saveProviderHealth({providerKey:'video_http',providerName:'TikTok Video Comment Provider',channel:'video_comment',enabled:true,ready:true,status:'healthy',metadata:{last_username:a.username,last_outcome:outcome,version:'0.5.2'}})
+    await saveProviderHealth({providerKey:'video_http',providerName:'TikTok Video Comment Provider',channel:'video_comment',enabled:true,ready:true,status:'healthy',metadata:{last_username:a.username,last_outcome:outcome,version:'0.5.3'}})
     console.log(JSON.stringify({event:'video_scan',username:a.username,videos:videos.length,items,candidates,new_leads:inserted,outcome}))
   }catch(e){
     const m=e instanceof Error?e.message:String(e)
     await saveState(a,'video_comment',provider,{last_error:m,last_items_seen:0,last_candidates_found:0,last_inserted_count:0,last_outcome:'error'})
     await finishRun(runId,{error:m,outcome:'error',metadata:{username:a.username}})
-    await saveProviderHealth({providerKey:'video_http',providerName:'TikTok Video Comment Provider',channel:'video_comment',enabled:true,ready:false,status:'error',lastError:m,metadata:{last_username:a.username,version:'0.5.2'}})
+    await saveProviderHealth({providerKey:'video_http',providerName:'TikTok Video Comment Provider',channel:'video_comment',enabled:true,ready:false,status:'error',lastError:m,metadata:{last_username:a.username,version:'0.5.3'}})
     console.error('video_scan_error',a.username,m)
   }
 }
 
-async function cycle(){await intentEngine.refresh();await publishProviderReadiness();const accounts=await loadWatchlist();for(const a of accounts)await Promise.all([scanLive(a),scanVideos(a)]);console.log(JSON.stringify({event:'cycle',at:new Date().toISOString(),accounts:accounts.length,videoProvider:Boolean(videoProvider),eulerKey:Boolean(EULER_SIGN_API_KEY),version:'0.5.2'}))}
-async function main(){console.log('GF Auto TikTok Radar worker V0.5.2 started',JSON.stringify({eulerKey:Boolean(EULER_SIGN_API_KEY),videoProvider:Boolean(videoProvider)}));const shutdown=async()=>{await liveProvider.disconnectAll();process.exit(0)};process.once('SIGTERM',shutdown);process.once('SIGINT',shutdown);for(;;){try{await cycle()}catch(e){console.error('cycle_error',e)}await new Promise(r=>setTimeout(r,LOOP_MS))}}
+async function cycle(){await intentEngine.refresh();await publishProviderReadiness();const accounts=await loadWatchlist();for(const a of accounts)await Promise.all([scanLive(a),scanVideos(a)]);console.log(JSON.stringify({event:'cycle',at:new Date().toISOString(),accounts:accounts.length,videoProvider:Boolean(videoProvider),eulerKey:Boolean(EULER_SIGN_API_KEY),eulerProbeHealthy,version:'0.5.3'}))}
+async function main(){console.log('GF Auto TikTok Radar worker V0.5.3 started',JSON.stringify({eulerKey:Boolean(EULER_SIGN_API_KEY),videoProvider:Boolean(videoProvider)}));const shutdown=async()=>{await liveProvider.disconnectAll();process.exit(0)};process.once('SIGTERM',shutdown);process.once('SIGINT',shutdown);for(;;){try{await cycle()}catch(e){console.error('cycle_error',e)}await new Promise(r=>setTimeout(r,LOOP_MS))}}
 void main()
