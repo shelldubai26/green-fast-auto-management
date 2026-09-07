@@ -5,8 +5,8 @@ export type WatchAccount = {
   username: string
   display_name: string | null
   watch_tier: WatchTier
-  monitor_live: boolean
-  monitor_video_comments: boolean
+  live_monitor: boolean
+  video_comment_monitor: boolean
   country_code: string | null
   city: string | null
   market_scope: string | null
