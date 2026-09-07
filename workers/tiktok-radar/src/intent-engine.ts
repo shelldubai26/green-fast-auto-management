@@ -35,17 +35,13 @@ const normalizedPattern = (rule: IntentRule) => normalize(rule.pattern)
 export class IntentEngine {
   private rules: IntentRule[] = []
   private loadedAt = 0
-  constructor(private supabase: SupabaseClient, private marketScope = 'abidjan_auto') {}
+  constructor(private supabase: SupabaseClient, private workerToken: string) {}
 
   async refresh(force = false) {
     if (!force && this.rules.length && Date.now() - this.loadedAt < 5 * 60_000) return
-    const { data, error } = await this.supabase
-      .from('tiktok_intent_rules')
-      .select('id,intent_type,pattern,match_type,weight')
-      .eq('market_scope', this.marketScope)
-      .eq('is_active', true)
+    const { data, error } = await this.supabase.rpc('radar_worker_get_rules', { p_token: this.workerToken })
     if (error) throw error
-    this.rules = (data || []) as IntentRule[]
+    this.rules = ((data || []) as IntentRule[]).filter(r => r.intent_type && r.pattern)
     this.loadedAt = Date.now()
   }
 
@@ -70,8 +66,6 @@ export class IntentEngine {
 
     let score = 10
     for (const weight of byIntent.values()) score += weight
-
-    // Multiple distinct purchase signals are much stronger than repeated words from one category.
     const distinct = byIntent.size
     if (distinct >= 2) score += 8
     if (distinct >= 3) score += 10
@@ -86,7 +80,7 @@ export class IntentEngine {
 
     if (explicitPurchase >= 26) score += 12
     if (visit >= 22 && (price || availability || explicitPurchase)) score += 10
-    if (contact >= 20 && (price || purchaseOr(explicitPurchase, finance))) score += 8
+    if (contact >= 20 && (price || explicitPurchase || finance)) score += 8
     if (finance >= 18 && price >= 12) score += 8
 
     score = Math.max(0, Math.min(100, score))
@@ -94,8 +88,4 @@ export class IntentEngine {
     const primaryIntent = [...byIntent.entries()].sort((a,b)=>b[1]-a[1])[0]?.[0] || null
     return { matched: score >= 25, score, grade, primaryIntent, matches }
   }
-}
-
-function purchaseOr(explicitPurchase: number, finance: number) {
-  return explicitPurchase || finance
 }
