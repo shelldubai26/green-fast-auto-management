@@ -65,11 +65,15 @@ export class SocQTikTokVideoProvider {
   }
 
   private videoId(item: any) {
-    return String(item?.id || item?.video_id || item?.post_id || item?.aweme_id || '')
+    return String(item?.id || item?.video_id || item?.post_id || item?.aweme_id || item?.content_id || item?.extra?.video_id || '')
   }
 
-  private videoUrl(item: any) {
-    return item?.url || item?.video_url || item?.share_url || item?.web_url || item?.source_url || null
+  private videoUrl(item: any, username?: string) {
+    const explicit = item?.url || item?.video_url || item?.share_url || item?.web_url || item?.source_url || item?.canonical_url || item?.permalink || item?.extra?.url || item?.extra?.video_url || null
+    if (explicit) return String(explicit)
+    const id = this.videoId(item)
+    const creator = String(item?.creator?.username || item?.author?.username || item?.username || item?.extra?.input_username || username || '').replace(/^@/, '')
+    return id && creator ? `https://www.tiktok.com/@${creator}/video/${id}` : null
   }
 
   async listRecentVideos(username: string, limit: number): Promise<VideoRef[]> {
@@ -82,14 +86,28 @@ export class SocQTikTokVideoProvider {
       region: 'CI',
     })
     const body = await this.wait(taskId)
-    return this.items(body)
+    const raw = this.items(body)
+    const videos = raw
       .map(item => ({
         id: this.videoId(item),
-        url: this.videoUrl(item),
-        createdAt: item?.created_at || item?.published_at || item?.timestamp || null,
+        url: this.videoUrl(item, clean),
+        createdAt: item?.created_at || item?.published_at || item?.timestamp || item?.create_time || null,
       }))
       .filter(video => video.id && video.url)
       .slice(0, limit)
+
+    console.log(JSON.stringify({
+      event: 'socq_user_videos',
+      username: clean,
+      task_id: taskId,
+      raw_items: raw.length,
+      usable_videos: videos.length,
+      first_item_keys: raw[0] ? Object.keys(raw[0]).slice(0, 20) : [],
+      first_video_id: videos[0]?.id || null,
+      version: '0.5.4',
+    }))
+
+    return videos
   }
 
   private async submitComments(url: string, resultsLimit = 100) {
@@ -106,21 +124,23 @@ export class SocQTikTokVideoProvider {
     if (!video.url) return []
     const taskId = await this.submitComments(video.url, 100)
     const body = await this.wait(taskId)
+    const raw = this.items(body)
     const cutoff = since ? new Date(since).getTime() : 0
     const cleanAccount = username.replace(/^@/, '')
 
-    return this.items(body).map((item: any, index: number) => {
+    const comments = raw.map((item: any, index: number) => {
       const author = item?.author || item?.user || item?.creator || {}
       const createdAt = item?.created_at || item?.published_at || item?.timestamp || item?.create_time || new Date().toISOString()
-      const createdMs = Number.isFinite(new Date(createdAt).getTime()) ? new Date(createdAt).getTime() : Date.now()
-      const authorUsername = String(author?.username || author?.unique_id || author?.uniqueId || item?.author_username || item?.username || 'unknown').replace(/^@/, '')
-      const commentId = String(item?.id || item?.comment_id || item?.cid || `${video.id}-${authorUsername}-${createdMs}-${index}`)
+      const parsed = new Date(createdAt).getTime()
+      const createdMs = Number.isFinite(parsed) ? parsed : Date.now()
+      const authorUsername = String(author?.username || author?.unique_id || author?.uniqueId || item?.author_username || item?.username || item?.extra?.author_username || 'unknown').replace(/^@/, '')
+      const commentId = String(item?.id || item?.comment_id || item?.cid || item?.commentId || `${video.id}-${authorUsername}-${createdMs}-${index}`)
       return {
         externalId: commentId,
         username: authorUsername,
         displayName: author?.display_name || author?.nickname || item?.author_name || null,
         userId: author?.id ? String(author.id) : author?.user_id ? String(author.user_id) : item?.author_id ? String(item.author_id) : null,
-        text: String(item?.text || item?.comment || item?.content || item?.body || ''),
+        text: String(item?.text || item?.comment || item?.content || item?.body || item?.description || ''),
         createdAt: new Date(createdMs).toISOString(),
         sourceType: 'video_comment' as const,
         sourceAccount: cleanAccount,
@@ -135,5 +155,18 @@ export class SocQTikTokVideoProvider {
         },
       }
     }).filter(comment => comment.text.trim().length > 0 && new Date(comment.createdAt).getTime() > cutoff)
+
+    console.log(JSON.stringify({
+      event: 'socq_video_comments',
+      username: cleanAccount,
+      video_id: video.id,
+      task_id: taskId,
+      raw_items: raw.length,
+      usable_comments: comments.length,
+      first_item_keys: raw[0] ? Object.keys(raw[0]).slice(0, 20) : [],
+      version: '0.5.4',
+    }))
+
+    return comments
   }
 }
