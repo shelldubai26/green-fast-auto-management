@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Activity, Clock3, Flame, MessageCircle, Radio, RefreshCw } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import type { Lang } from '../lib/modules'
+import './TikTokLiveWatchPanel.css'
 
 type WatchRow={
   watchlist_id:string
