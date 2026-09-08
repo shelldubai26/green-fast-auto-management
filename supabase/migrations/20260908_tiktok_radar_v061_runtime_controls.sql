@@ -1,6 +1,7 @@
 -- TikTok Radar V0.6.1 — runtime master switch + public profile enrichment queue
 
-create or replace function public.radar_worker_get_watchlist(p_token text)
+drop function if exists public.radar_worker_get_watchlist(text);
+create function public.radar_worker_get_watchlist(p_token text)
 returns setof public.tiktok_watchlist
 language plpgsql
 security definer
