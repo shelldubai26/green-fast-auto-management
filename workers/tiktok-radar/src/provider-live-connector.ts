@@ -63,6 +63,13 @@ export class TikTokLiveConnectorPool {
     return slot
   }
 
+  isSessionActive(username: string) {
+    const key = username.replace(/^@/, '')
+    const slot = this.slots.get(key)
+    if (!slot) return false
+    return Boolean(slot.connection.isConnected || slot.eulerWs?.readyState === WebSocket.OPEN)
+  }
+
   private isOfflineError(err: unknown) {
     const name = typeof err === 'object' && err && 'name' in err ? String((err as any).name || '') : ''
     const message = err instanceof Error ? err.message : String(err)
@@ -78,7 +85,7 @@ export class TikTokLiveConnectorPool {
       const ws = new WebSocket(url)
       slot.eulerWs = ws
       const timer = setTimeout(() => { try { ws.close() } catch {}; reject(new Error('euler_ws_connect_timeout')) }, 12000)
-      ws.addEventListener('open', () => { clearTimeout(timer); console.log(JSON.stringify({event:'euler_ws_connected',username:key,version:'0.6.0'})); resolve(true) }, { once: true })
+      ws.addEventListener('open', () => { clearTimeout(timer); console.log(JSON.stringify({event:'euler_ws_connected',username:key,version:'0.6.4'})); resolve(true) }, { once: true })
       ws.addEventListener('message', (event: MessageEvent) => {
         try {
           const body = JSON.parse(String(event.data || '{}'))
@@ -91,7 +98,7 @@ export class TikTokLiveConnectorPool {
       })
       ws.addEventListener('close', (event: CloseEvent) => {
         slot.eulerWs = null
-        if (event.code !== 1000) console.log(JSON.stringify({event:'euler_ws_closed',username:key,code:event.code,reason:event.reason||null,version:'0.6.0'}))
+        if (event.code !== 1000) console.log(JSON.stringify({event:'euler_ws_closed',username:key,code:event.code,reason:event.reason||null,version:'0.6.4'}))
       })
       ws.addEventListener('error', () => { clearTimeout(timer); reject(new Error('euler_ws_error')) }, { once: true })
     }).finally(() => { slot.eulerConnecting = null })
@@ -101,6 +108,9 @@ export class TikTokLiveConnectorPool {
   async isLive(username: string) {
     const key = username.replace(/^@/, '')
     const slot = this.slot(key)
+    // V0.6.4: once a room is connected, keep it hot instead of repeatedly re-resolving room status.
+    // This lets the worker drain newly arriving comments every few seconds with minimal provider overhead.
+    if (slot.connection.isConnected || slot.eulerWs?.readyState === WebSocket.OPEN) return true
     try {
       const live = await slot.connection.fetchIsLive(key)
       if (live && !slot.connection.isConnected && !slot.connecting) {
@@ -118,7 +128,6 @@ export class TikTokLiveConnectorPool {
         if (slot.connection.isConnected) return true
       } catch (connectErr) {
         if (this.isOfflineError(connectErr)) return false
-        // Final fallback: EulerStream's own public WebSocket API does not require us to resolve a Room ID first.
         try { return await this.connectEulerWebSocket(key, slot) } catch (wsErr) {
           const statusMessage = statusErr instanceof Error ? statusErr.message : String(statusErr)
           const connectMessage = connectErr instanceof Error ? connectErr.message : String(connectErr)
