@@ -1,3 +1,7 @@
 import './index.js'
+import { startCandidateDiscovery } from './candidate-discovery.js'
+import { startLeadEnrichment } from './lead-enrichment.js'
 
-console.log('GF Auto TikTok Radar closure mode: LIVE + Video only')
+startCandidateDiscovery()
+startLeadEnrichment()
+console.log('GF Auto TikTok Radar V0.6.1: controlled LIVE + Video + discovery + public contact enrichment')
