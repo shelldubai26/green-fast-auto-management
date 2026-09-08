@@ -10,6 +10,7 @@ const supabase=createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{auth:{persist
 const enricher=SOCQ_API_KEY?new SocQPublicContactEnricher(SOCQ_API_KEY):null
 
 async function rpc<T>(name:string,args:Record<string,unknown>):Promise<T>{const{data,error}=await supabase.rpc(name,args);if(error)throw error;return data as T}
+function errorText(e:unknown){if(e instanceof Error)return e.message;try{return JSON.stringify(e)}catch{return String(e)}}
 let running=false
 export async function runLeadEnrichment(){
   if(running||!enricher)return
@@ -24,18 +25,15 @@ export async function runLeadEnrichment(){
         checked++
         if(contact.phone||contact.whatsapp||contact.email)found++
         console.log(JSON.stringify({event:'lead_public_contact',username:lead.username,found:Boolean(contact.phone||contact.whatsapp||contact.email),score:lead.intent_score,version:'0.6.1'}))
-      }catch(e){
-        const m=e instanceof Error?e.message:String(e)
-        console.error('lead_enrichment_error',lead.username,m)
-        if(/socq_402|insufficient credits|socq_429/i.test(m))break
-      }
+      }catch(e){const m=errorText(e);console.error('lead_enrichment_error',lead.username,m);if(/socq_402|insufficient credits|socq_429/i.test(m))break}
     }
     console.log(JSON.stringify({event:'lead_enrichment_cycle',queued:(queue||[]).length,checked,found,version:'0.6.1'}))
-  }finally{running=false}
+  }catch(e){console.error('lead_enrichment_cycle_error',errorText(e))}finally{running=false}
 }
 export function startLeadEnrichment(){
   if(!enricher){console.log('TikTok public contact enrichment disabled: SOCQ_API_KEY missing');return}
-  setTimeout(()=>void runLeadEnrichment(),30_000)
-  setInterval(()=>void runLeadEnrichment(),Math.max(5*60_000,ENRICH_MS))
+  const run=()=>{void runLeadEnrichment().catch(e=>console.error('lead_enrichment_unhandled',errorText(e)))}
+  setTimeout(run,30_000)
+  setInterval(run,Math.max(5*60_000,ENRICH_MS))
   console.log(JSON.stringify({event:'lead_enrichment_enabled',interval_ms:ENRICH_MS,version:'0.6.1'}))
 }
