@@ -1,7 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
-import PublicShowroomV2 from './components/PublicShowroomV2'
+import MarketplaceV1 from './components/MarketplaceV1'
 import PublicLegalPage from './components/PublicLegalPage'
 import PublicTrackingGateway from './components/PublicTrackingGateway'
 import PublicEmployeeBioGateway from './components/PublicEmployeeBioGateway'
@@ -21,7 +21,7 @@ const isTracking=path.startsWith('/t/')
 
 function PublicShowroomWithLegalLinks(){
  return <>
-  <PublicShowroomV2/>
+  <MarketplaceV1/>
   <footer style={{padding:'22px 24px',textAlign:'center',fontFamily:'Inter,Arial,sans-serif',fontSize:13,color:'#66736a',borderTop:'1px solid #dfe6e1',background:'#fff'}}>
    <strong style={{color:'#17211b'}}>GREEN FAST AUTO</strong>
    <span style={{margin:'0 10px'}}>·</span>
