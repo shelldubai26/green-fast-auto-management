@@ -1,5 +1,6 @@
 import './marketplaceCompareEnhancer.css'
 
+// Lightweight DOM enhancement for public comparison tables.
 const label=(zh:boolean,active:boolean)=>active?(zh?'显示全部配置':'Afficher tout'):(zh?'只看差异':'Voir seulement les différences')
 
 function enhance(root:HTMLElement){
