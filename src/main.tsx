@@ -11,6 +11,7 @@ import './table-fixes.css'
 import './sidebar-scroll.css'
 import './showroom.css'
 import './ui-polish.css'
+import './components/MarketplaceV1.home.css'
 
 const path=window.location.pathname
 const isTerms=path==='/terms'||path.startsWith('/terms/')
