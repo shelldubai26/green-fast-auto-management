@@ -15,11 +15,12 @@
  .chooser-filters select{height:29px;min-width:86px;font-size:9px}
  .discovery-section{padding-top:13px}
  .discovery-head{margin-bottom:6px}.discovery-head span{display:none}.discovery-head h2{font-size:18px}
- .discovery-grid{gap:7px;margin-right:-12px;padding-right:12px}
- .discovery-grid .market-card,.discovery-grid .market-card:nth-child(n){flex-basis:67%;border-radius:13px}
- .discovery-grid .card-media{aspect-ratio:16/10}
+ /* Mobile discovery rows: exactly two cards across, then continue vertically. */
+ .discovery-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important;overflow:visible!important;margin-right:0!important;padding-right:0!important;scroll-snap-type:none!important}
+ .discovery-grid .market-card,.discovery-grid .market-card:nth-child(n){display:block!important;min-width:0!important;width:auto!important;flex:none!important;border-radius:13px}
+ .discovery-grid .card-media{aspect-ratio:4/3}
  .discovery-grid .card-copy{padding:8px 9px 9px}
- .discovery-grid .card-copy h2{font-size:13px;-webkit-line-clamp:1;white-space:normal}
+ .discovery-grid .card-copy h2{font-size:13px;-webkit-line-clamp:2;white-space:normal}
  .discovery-grid .price-line strong{font-size:13px}
  .discovery-grid .mini-specs{display:flex}
  .discovery-grid .card-actions{grid-template-columns:1fr}.discovery-grid .card-actions button.primary{font-size:9px}
@@ -28,9 +29,10 @@
  .use-grid>button{flex-basis:64%;min-height:66px}
  .eco-section,.suv-section{padding-top:14px}
  .market-main{padding-top:18px}
- .market-main .market-grid{gap:7px}
- .market-main .card-media{aspect-ratio:1.22/1}
- .market-main .card-copy h2{font-size:12px;-webkit-line-clamp:1}
+ .market-main .market-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important}
+ .market-main .market-card{min-width:0;width:auto}
+ .market-main .card-media{aspect-ratio:4/3}
+ .market-main .card-copy h2{font-size:12px;-webkit-line-clamp:2}
  .market-main .mini-specs{display:none}
  .market-main .card-actions{margin-top:5px}
  .market-main .price-line strong{font-size:12px}
