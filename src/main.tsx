@@ -18,6 +18,7 @@ import './ui-polish.css'
 import './components/MarketplaceV1.home.css'
 import './components/MarketplaceV1.intent.css'
 import './components/MarketplaceV1.detail.css'
+import './components/MarketplaceV1.browse.css'
 
 const path=window.location.pathname
 const isTerms=path==='/terms'||path.startsWith('/terms/')
