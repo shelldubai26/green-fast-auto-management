@@ -1,0 +1,41 @@
+/* V1 browse-first mobile polish: less form, more cars */
+@media(max-width:620px){
+ .market-banner{min-height:245px;padding:25px 16px 44px}
+ .banner-copy>span{margin-bottom:6px}
+ .banner-copy h1{font-size:27px;max-width:82%;margin-bottom:6px}
+ .banner-copy p{font-size:10px;max-width:76%;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:10px}
+ .banner-copy>a{padding:8px 11px;font-size:10px}
+ .market-chooser>div{margin-top:-14px;padding:8px}
+ .ai-search-head{display:flex;margin:0 2px 6px;justify-content:space-between}
+ .ai-search-head>span{font-size:11px}.ai-search-head small{display:none}
+ .hero-search.ai-search{height:42px;border-width:1.5px;box-shadow:0 7px 20px rgba(11,155,85,.10)}
+ .market-condition-tabs{display:flex;gap:5px;overflow-x:auto;margin:7px 0 0}
+ .market-condition-tabs button{flex:0 0 auto;padding:6px 12px;border-radius:999px}
+ .chooser-filters{margin-top:5px}
+ .chooser-filters select{height:29px;min-width:86px;font-size:9px}
+ .discovery-section{padding-top:13px}
+ .discovery-head{margin-bottom:6px}.discovery-head span{display:none}.discovery-head h2{font-size:18px}
+ .discovery-grid{gap:7px;margin-right:-12px;padding-right:12px}
+ .discovery-grid .market-card,.discovery-grid .market-card:nth-child(n){flex-basis:67%;border-radius:13px}
+ .discovery-grid .card-media{aspect-ratio:16/10}
+ .discovery-grid .card-copy{padding:8px 9px 9px}
+ .discovery-grid .card-copy h2{font-size:13px;-webkit-line-clamp:1;white-space:normal}
+ .discovery-grid .price-line strong{font-size:13px}
+ .discovery-grid .mini-specs{display:flex}
+ .discovery-grid .card-actions{grid-template-columns:1fr}.discovery-grid .card-actions button.primary{font-size:9px}
+ .budget-section,.use-section{padding-top:14px}
+ .budget-grid button{flex-basis:39%;min-height:76px}.budget-grid strong{font-size:14px}
+ .use-grid>button{flex-basis:64%;min-height:66px}
+ .eco-section,.suv-section{padding-top:14px}
+ .market-main{padding-top:18px}
+ .market-main .market-grid{gap:7px}
+ .market-main .card-media{aspect-ratio:1.22/1}
+ .market-main .card-copy h2{font-size:12px;-webkit-line-clamp:1}
+ .market-main .mini-specs{display:none}
+ .market-main .card-actions{margin-top:5px}
+ .market-main .price-line strong{font-size:12px}
+}
+@media(min-width:621px){
+ .discovery-grid .card-media{aspect-ratio:16/9}
+ .discovery-grid .card-copy h2{min-height:20px}
+}
