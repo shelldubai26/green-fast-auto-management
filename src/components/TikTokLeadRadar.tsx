@@ -7,7 +7,7 @@ import TikTokRadarOwnerControls from './TikTokRadarOwnerControls'
 import './TikTokLeadRadar.css'
 
 type LeadStatus='new'|'high_intent'|'assigned'|'contact_attempted'|'replied'|'contact_captured'|'converted'|'invalid'
-type SocialLead={id:string;username:string;display_name:string|null;source_type:'live'|'video_comment';original_text:string;original_text_zh:string|null;interested_model:string|null;intent_label:string|null;intent_score:number;occurrence_count:number;last_seen_at:string;status:LeadStatus;assigned_to:string|null;notes:string|null;public_phone:string|null;public_whatsapp:string|null;public_email:string|null}
+type SocialLead={id:string;username:string;display_name:string|null;source_type:'live'|'video_comment';original_text:string;original_text_zh:string|null;interested_model:string|null;intent_label:string|null;intent_score:number;occurrence_count:number;last_seen_at:string;status:LeadStatus;assigned_to:string|null;notes:string|null;public_phone:string|null;public_whatsapp:string|null;public_email:string|null;lead_quality:string|null}
 type Profile={id:string;full_name:string|null;role:'manager'|'sales'|string}
 type SourceDetail={source_account:string|null;source_url:string|null;source_content_id:string|null;source_event_id:string|null}
 type Tab='leads'|'monitor'
@@ -16,7 +16,7 @@ const statusCopy:Record<LeadStatus,{fr:string;zh:string}>={new:{fr:'Nouveau',zh:
 const statusFlow:LeadStatus[]=['new','high_intent','assigned','contact_attempted','replied','contact_captured','converted']
 const fmtCommentDate=(v:string)=>new Intl.DateTimeFormat('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(v))
 const relativeAge=(v:string,lang:Lang)=>{const sec=Math.max(0,Math.floor((Date.now()-new Date(v).getTime())/1000));if(sec<60)return lang==='fr'?'à l’instant':'刚刚';const min=Math.floor(sec/60);if(min<60)return lang==='fr'?`il y a ${min} min`:`${min}分钟前`;const h=Math.floor(min/60);if(h<24)return lang==='fr'?`il y a ${h} h`:`${h}小时前`;return fmtCommentDate(v)}
-const safeLeadFields='id,username,display_name,source_type,original_text,original_text_zh,interested_model,intent_label,intent_score,occurrence_count,last_seen_at,status,assigned_to,notes,public_phone,public_whatsapp,public_email'
+const safeLeadFields='id,username,display_name,source_type,original_text,original_text_zh,interested_model,intent_label,intent_score,occurrence_count,last_seen_at,status,assigned_to,notes,public_phone,public_whatsapp,public_email,lead_quality'
 
 export default function TikTokLeadRadar({lang,role,userId,onOpenCrm}:{lang:Lang;role:Role;userId:string;onOpenCrm:()=>void}){
   const [leads,setLeads]=useState<SocialLead[]>([]),[profiles,setProfiles]=useState<Profile[]>([]),[loading,setLoading]=useState(true),[q,setQ]=useState(''),[filter,setFilter]=useState<'all'|LeadStatus>('all'),[sourceFilter,setSourceFilter]=useState<SourceFilter>('live'),[selected,setSelected]=useState<SocialLead|null>(null),[sourceDetail,setSourceDetail]=useState<SourceDetail|null>(null),[busy,setBusy]=useState(false),[phone,setPhone]=useState(''),[whatsapp,setWhatsapp]=useState(''),[tab,setTab]=useState<Tab>('leads'),[checked,setChecked]=useState<Set<string>>(new Set()),[bulkTarget,setBulkTarget]=useState('')
