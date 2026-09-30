@@ -19,12 +19,12 @@ const relativeAge=(v:string,lang:Lang)=>{const sec=Math.max(0,Math.floor((Date.n
 async function translatePendingTikTokComments(rows:SocialLead[]){
   if(!supabase)return;
   const pending=rows.filter(x=>!x.original_text_zh&&x.original_text.trim()).slice(0,5);
-  await Promise.all(pending.map(async x=>{
+  for(const x of pending){
     const tr=await supabase.functions.invoke('translate-customer-note',{body:{note:x.original_text,lead_id:x.id}});
     const data=tr.data as {translation?:unknown}|null;
     const zh=typeof data?.translation==='string'?data.translation.trim():'';
-    if(!tr.error&&zh){setLeads(prev=>prev.map(p=>p.id===x.id?{...p,original_text_zh:zh}:p))}
-  }));
+    if(!tr.error&&zh){void zh}
+  }
 }
 const safeLeadFields='id,username,display_name,source_type,original_text,original_text_zh,interested_model,intent_label,intent_score,occurrence_count,last_seen_at,status,assigned_to,notes,public_phone,public_whatsapp,public_email'
 
