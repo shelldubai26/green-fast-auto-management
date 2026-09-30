@@ -5,7 +5,7 @@ import { optionText, statuses, type Lang, type Role } from '../lib/modules'
 import './CrmModule.css'
 
 type Staff={id:string;full_name:string;role:Role;active:boolean}
-type Customer={id:string;full_name:string;phone:string|null;whatsapp:string|null;email:string|null;nationality:string|null;lead_source:string|null;lead_type:string|null;interested_model:string|null;budget:number|null;assigned_to:string|null;stage:string|null;follow_up_date:string|null;notes:string|null;created_at:string;assigned_at:string|null;first_contact_at:string|null;visited_at:string|null;deposit_at:string|null;signed_at:string|null}
+type Customer={id:string;full_name:string;phone:string|null;whatsapp:string|null;email:string|null;nationality:string|null;lead_source:string|null;lead_type:string|null;interested_model:string|null;budget:number|null;assigned_to:string|null;stage:string|null;follow_up_date:string|null;notes:string|null;notes_zh:string|null;created_at:string;assigned_at:string|null;first_contact_at:string|null;visited_at:string|null;deposit_at:string|null;signed_at:string|null}
 type Tab='customers'|'pool'|'performance'
 
 const sourceOptions=['tiktok','facebook','instagram','google_search','voitures_ci','autoci','walk_in','referral','whatsapp','other']
@@ -21,10 +21,10 @@ const dt=(v:string|null)=>v?new Date(v).toLocaleString():'—'
 export default function CrmModule({lang,role,userId}:{lang:Lang;role:Role;userId:string}){
  const t=txt[lang],admin=role==='owner'||role==='manager'
  const[rows,setRows]=useState<Customer[]>([]),[staff,setStaff]=useState<Staff[]>([]),[query,setQuery]=useState(''),[loading,setLoading]=useState(true),[error,setError]=useState(''),[editing,setEditing]=useState<Customer|null|undefined>(undefined),[viewing,setViewing]=useState<Customer|null>(null),[tab,setTab]=useState<Tab>('customers'),[selected,setSelected]=useState<string[]>([]),[assignTo,setAssignTo]=useState('')
- const load=useCallback(async()=>{if(!supabase)return;setLoading(true);setError('');let q=supabase.from('customers').select('id,full_name,phone,whatsapp,email,nationality,lead_source,lead_type,interested_model,budget,assigned_to,stage,follow_up_date,notes,created_at,assigned_at,first_contact_at,visited_at,deposit_at,signed_at').order('created_at',{ascending:false});if(role==='sales')q=q.eq('assigned_to',userId);const[{data,error},{data:staffData}]=await Promise.all([q,supabase.from('profiles').select('id,full_name,role,active').eq('active',true).in('role',['owner','manager','sales'])]);if(error)setError(error.message);else setRows((data||[]) as Customer[]);setStaff((staffData||[]) as Staff[]);setLoading(false)},[role,userId])
+ const load=useCallback(async()=>{if(!supabase)return;setLoading(true);setError('');let q=supabase.from('customers').select('id,full_name,phone,whatsapp,email,nationality,lead_source,lead_type,interested_model,budget,assigned_to,stage,follow_up_date,notes,notes_zh,created_at,assigned_at,first_contact_at,visited_at,deposit_at,signed_at').order('created_at',{ascending:false});if(role==='sales')q=q.eq('assigned_to',userId);const[{data,error},{data:staffData}]=await Promise.all([q,supabase.from('profiles').select('id,full_name,role,active').eq('active',true).in('role',['owner','manager','sales'])]);if(error)setError(error.message);else setRows((data||[]) as Customer[]);setStaff((staffData||[]) as Staff[]);setLoading(false)},[role,userId])
  useEffect(()=>{void load()},[load])
  const staffMap=useMemo(()=>Object.fromEntries(staff.map(s=>[s.id,s.full_name||s.id])),[staff])
- const filtered=rows.filter(r=>`${r.full_name} ${r.phone||''} ${r.email||''} ${r.interested_model||''} ${r.notes||''}`.toLowerCase().includes(query.toLowerCase()))
+ const filtered=rows.filter(r=>`${r.full_name} ${r.phone||''} ${r.email||''} ${r.interested_model||''} ${r.notes||''} ${r.notes_zh||''}`.toLowerCase().includes(query.toLowerCase()))
  const pool=filtered.filter(r=>r.lead_type==='passive'&&!r.assigned_to)
  const assigned=filtered.filter(r=>r.assigned_to)
  const updateAssignment=async(customerId:string,next:string|null)=>{if(!supabase||!admin)return;const{error}=await supabase.from('customers').update({assigned_to:next,assigned_by:next?userId:null}).eq('id',customerId);if(error)setError(error.message);else void load()}
