@@ -10,7 +10,7 @@ Deno.serve(async(req:Request)=>{
   const{data:{user}}=await client.auth.getUser();if(!user)throw new Error("Unauthorized");
   const{data:p}=await client.from("profiles").select("role").eq("id",user.id).single();if(!p||!["owner","manager","sales"].includes(p.role))throw new Error("Forbidden");
   const body=await req.json(),note=String(body.note||"").trim();if(!note)return new Response(JSON.stringify({translation:""}),{headers:{...cors,"Content-Type":"application/json"}});
-  const requestBody={model:"gpt-5-mini",input:[{role:"user",content:[{type:"input_text",text:`Translate this French automotive sales follow-up note into natural concise Simplified Chinese for a Chinese manager. Preserve names, vehicle models, amounts, dates, phone numbers and meaning. Do not add facts. Return only the Chinese translation.
+  const requestBody={model:"gpt-5-mini",input:[{role:"user",content:[{type:"input_text",text:`Translate this automotive customer follow-up note or social-media comment into natural concise Simplified Chinese for a Chinese manager. If it is already Chinese, return it as-is. Preserve names, usernames, vehicle models, amounts, dates, phone numbers and meaning. Do not add facts. Return only the Chinese translation.
 French note:
 ${note}`}]}],text:{format:{type:"json_schema",name:"customer_note_translation",strict:true,schema:{type:"object",properties:{translation:{type:"string"}},required:["translation"],additionalProperties:false}}}};
   const r=await fetch("https://api.openai.com/v1/responses",{method:"POST",headers:{Authorization:`Bearer ${openai}`,"Content-Type":"application/json"},body:JSON.stringify(requestBody)});
