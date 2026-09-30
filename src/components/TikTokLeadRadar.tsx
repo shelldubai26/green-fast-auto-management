@@ -16,12 +16,22 @@ const statusCopy:Record<LeadStatus,{fr:string;zh:string}>={new:{fr:'Nouveau',zh:
 const statusFlow:LeadStatus[]=['new','high_intent','assigned','contact_attempted','replied','contact_captured','converted']
 const fmtCommentDate=(v:string)=>new Intl.DateTimeFormat('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(v))
 const relativeAge=(v:string,lang:Lang)=>{const sec=Math.max(0,Math.floor((Date.now()-new Date(v).getTime())/1000));if(sec<60)return lang==='fr'?'à l’instant':'刚刚';const min=Math.floor(sec/60);if(min<60)return lang==='fr'?`il y a ${min} min`:`${min}分钟前`;const h=Math.floor(min/60);if(h<24)return lang==='fr'?`il y a ${h} h`:`${h}小时前`;return fmtCommentDate(v)}
+async function translatePendingTikTokComments(rows:SocialLead[]){
+  if(!supabase)return;
+  const pending=rows.filter(x=>!x.original_text_zh&&x.original_text.trim()).slice(0,5);
+  await Promise.all(pending.map(async x=>{
+    const tr=await supabase.functions.invoke('translate-customer-note',{body:{note:x.original_text}});
+    const data=tr.data as {translation?:unknown}|null;
+    const zh=typeof data?.translation==='string'?data.translation.trim():'';
+    if(!tr.error&&zh){await supabase.from('social_leads').update({original_text_zh:zh}).eq('id',x.id)}
+  }));
+}
 const safeLeadFields='id,username,display_name,source_type,original_text,original_text_zh,interested_model,intent_label,intent_score,occurrence_count,last_seen_at,status,assigned_to,notes,public_phone,public_whatsapp,public_email'
 
 export default function TikTokLeadRadar({lang,role,userId,onOpenCrm}:{lang:Lang;role:Role;userId:string;onOpenCrm:()=>void}){
   const [leads,setLeads]=useState<SocialLead[]>([]),[profiles,setProfiles]=useState<Profile[]>([]),[loading,setLoading]=useState(true),[q,setQ]=useState(''),[filter,setFilter]=useState<'all'|LeadStatus>('all'),[sourceFilter,setSourceFilter]=useState<SourceFilter>('live'),[selected,setSelected]=useState<SocialLead|null>(null),[sourceDetail,setSourceDetail]=useState<SourceDetail|null>(null),[busy,setBusy]=useState(false),[phone,setPhone]=useState(''),[whatsapp,setWhatsapp]=useState(''),[tab,setTab]=useState<Tab>('leads'),[checked,setChecked]=useState<Set<string>>(new Set()),[bulkTarget,setBulkTarget]=useState('')
   const isOwner=role==='owner',txt=(fr:string,zh:string)=>lang==='fr'?fr:zh
-  const load=async()=>{if(!supabase)return;setLoading(true);const leadQ=supabase.from('social_leads').select(safeLeadFields).order('last_seen_at',{ascending:false}).limit(300);const profileQ=isOwner?supabase.from('profiles').select('id,full_name,role').in('role',['manager','sales']):Promise.resolve({data:[] as Profile[]});const [{data:leadData},{data:profileData}]=await Promise.all([leadQ,profileQ]);setLeads((leadData||[]) as unknown as SocialLead[]);setProfiles((profileData||[]) as Profile[]);setLoading(false)}
+  const load=async()=>{if(!supabase)return;setLoading(true);const leadQ=supabase.from('social_leads').select(safeLeadFields).order('last_seen_at',{ascending:false}).limit(300);const profileQ=isOwner?supabase.from('profiles').select('id,full_name,role').in('role',['manager','sales']):Promise.resolve({data:[] as Profile[]});const [{data:leadData},{data:profileData}]=await Promise.all([leadQ,profileQ]);const rows=(leadData||[]) as unknown as SocialLead[];setLeads(rows);setProfiles((profileData||[]) as Profile[]);setLoading(false);void translatePendingTikTokComments(rows)}
   useEffect(()=>{void load();const t=window.setInterval(()=>void load(),15_000);return()=>window.clearInterval(t)},[])
   const visible=useMemo(()=>leads.filter(l=>(sourceFilter==='all'||l.source_type===sourceFilter)&&(filter==='all'||l.status===filter)&&(!q||`${l.username} ${l.display_name||''} ${l.original_text} ${l.interested_model||''} ${l.public_phone||''} ${l.public_whatsapp||''}`.toLowerCase().includes(q.toLowerCase()))).sort((a,b)=>sourceFilter==='live'?new Date(b.last_seen_at).getTime()-new Date(a.last_seen_at).getTime():(b.intent_score-a.intent_score)||(new Date(b.last_seen_at).getTime()-new Date(a.last_seen_at).getTime())),[leads,q,filter,sourceFilter])
   const selectable=visible.filter(x=>x.status!=='converted'&&x.status!=='invalid')
