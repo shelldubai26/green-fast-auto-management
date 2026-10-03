@@ -26,7 +26,7 @@ export default function CrmModule({lang,role,userId}:{lang:Lang;role:Role;userId
  const staffMap=useMemo(()=>Object.fromEntries(staff.map(s=>[s.id,s.full_name||s.id])),[staff])
  const filtered=rows.filter(r=>`${r.full_name} ${r.phone||''} ${r.email||''} ${r.interested_model||''} ${r.notes||''} ${r.notes_zh||''}`.toLowerCase().includes(query.toLowerCase()))
  const pool=filtered.filter(r=>r.lead_type==='passive'&&!r.assigned_to)
- const visibleRows=admin?filtered:filtered.filter(r=>r.assigned_to===userId)
+ const visibleRows=filtered
  const updateAssignment=async(customerId:string,next:string|null)=>{if(!supabase||!admin)return;const{error}=await supabase.from('customers').update({assigned_to:next,assigned_by:next?userId:null}).eq('id',customerId);if(error)setError(error.message);else void load()}
  const assignSelected=async()=>{if(!supabase||!admin||!assignTo||selected.length===0)return;const{error}=await supabase.from('customers').update({assigned_to:assignTo,assigned_by:userId}).in('id',selected);if(error)setError(error.message);else{setSelected([]);setAssignTo('');void load()}}
  const mark=async(r:Customer,kind:'visit'|'deposit'|'signed')=>{if(!supabase)return;const now=new Date().toISOString();const payload:Record<string,unknown>={};if(kind==='visit'){payload.visited_at=now;if(r.stage==='new'||r.stage==='contacted'||r.stage==='qualified')payload.stage='test_drive'}if(kind==='deposit'){payload.deposit_at=now;payload.stage='deposit'}if(kind==='signed'){payload.signed_at=now;payload.stage='won'}const{error}=await supabase.from('customers').update(payload).eq('id',r.id);if(error)setError(error.message);else void load()}
