@@ -12,9 +12,11 @@ create table if not exists public.employee_salary_settings (
 );
 create index if not exists employee_salary_effective_idx on public.employee_salary_settings(employee_id,effective_from desc);
 alter table public.employee_salary_settings enable row level security;
+drop policy if exists salary_settings_read_policy on public.employee_salary_settings;
 create policy salary_settings_read_policy on public.employee_salary_settings for select to authenticated using (
  exists(select 1 from public.profiles p where p.id=(select auth.uid()) and p.role in ('owner','finance'))
 );
+drop policy if exists salary_settings_owner_insert_policy on public.employee_salary_settings;
 create policy salary_settings_owner_insert_policy on public.employee_salary_settings for insert to authenticated with check (
  created_by=(select auth.uid()) and exists(select 1 from public.profiles p where p.id=(select auth.uid()) and p.role='owner')
 );
@@ -34,7 +36,7 @@ begin
    return new;
  end if;
  if tg_op='UPDATE' and new.status is distinct from old.status then
-   if old.status='draft' and new.status='reviewed' and v_role in ('owner','manager') then
+   if old.status='draft' and new.status='reviewed' and v_role='owner' then
      new.reviewed_by := auth.uid();
    elsif old.status='reviewed' and new.status='approved' and v_role='owner' then
      new.approved_by := auth.uid();
@@ -53,10 +55,7 @@ begin
  return new;
 end;
 $$;
+revoke all on function public.gf_guard_payroll_status_transition() from public, anon, authenticated;
 drop trigger if exists gf_guard_payroll_status_transition on public.payroll_records;
 create trigger gf_guard_payroll_status_transition before insert or update on public.payroll_records
 for each row execute function public.gf_guard_payroll_status_transition();
-drop policy if exists payroll_manager_review_policy on public.payroll_records;
-create policy payroll_manager_review_policy on public.payroll_records for update to authenticated
-using (status='draft' and exists(select 1 from public.profiles p where p.id=(select auth.uid()) and p.role in ('owner','manager')))
-with check (exists(select 1 from public.profiles p where p.id=(select auth.uid()) and p.role in ('owner','manager')));
