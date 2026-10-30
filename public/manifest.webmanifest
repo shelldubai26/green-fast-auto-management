@@ -1,0 +1,25 @@
+{
+  "id": "/",
+  "name": "Green Fast Auto Management",
+  "short_name": "GF Auto",
+  "description": "GF Auto employee and business management",
+  "lang": "fr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f6f8f6",
+  "theme_color": "#176b45",
+  "categories": [
+    "business",
+    "productivity"
+  ],
+  "icons": [
+    {
+      "src": "/icons/gf-auto.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
