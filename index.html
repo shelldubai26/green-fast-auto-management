@@ -4,15 +4,23 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#176b45" />
-    <meta name="description" content="Green Fast Auto — équipe, ventes et opérations." />
-    <meta name="application-name" content="GF Auto Management" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="GF Auto" />
-    <link rel="manifest" href="/manifest.webmanifest" />
-    <link rel="icon" type="image/svg+xml" href="/icons/gf-auto.svg" />
-    <link rel="apple-touch-icon" href="/icons/gf-auto.svg" />
-    <title>Green Fast Auto</title>
+    <meta name="description" content="Green Fast Auto — véhicules et showroom à Abidjan." />
+    <script>
+      (function () {
+        var showroom = location.pathname === '/showroom' || location.pathname.indexOf('/showroom/') === 0;
+        var appName = showroom ? 'GF Auto Showroom' : 'GF Auto Management';
+        var shortName = showroom ? 'GF Showroom' : 'GF Auto';
+        var manifest = showroom ? '/showroom.webmanifest' : '/manifest.webmanifest';
+        document.write('<meta name="application-name" content="' + appName + '">');
+        document.write('<meta name="apple-mobile-web-app-capable" content="yes">');
+        document.write('<meta name="apple-mobile-web-app-status-bar-style" content="default">');
+        document.write('<meta name="apple-mobile-web-app-title" content="' + shortName + '">');
+        document.write('<link rel="manifest" href="' + manifest + '">');
+        document.write('<link rel="icon" type="image/svg+xml" href="/icons/gf-auto.svg">');
+        document.write('<link rel="apple-touch-icon" href="/icons/gf-auto.svg">');
+        document.write('<title>' + appName + '</title>');
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
