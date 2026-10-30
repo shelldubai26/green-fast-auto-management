@@ -3,6 +3,8 @@
   "name": "Green Fast Auto Management",
   "short_name": "GF Auto",
   "description": "GF Auto employee and business management",
+  "display_override": ["standalone", "minimal-ui"],
+  "prefer_related_applications": false,
   "lang": "fr",
   "start_url": "/",
   "scope": "/",
