@@ -20,6 +20,15 @@ import './components/MarketplaceV1.intent.css'
 import './components/MarketplaceV1.detail.css'
 import './components/MarketplaceV1.browse.css'
 
+// Register the app-shell service worker. Authentication and API responses are never cached.
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch((error) => {
+      console.warn('GF Auto offline shell registration failed:', error)
+    })
+  })
+}
+
 const path=window.location.pathname
 const isTerms=path==='/terms'||path.startsWith('/terms/')
 const isPrivacy=path==='/privacy'||path.startsWith('/privacy/')
