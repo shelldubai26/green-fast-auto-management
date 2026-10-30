@@ -1,0 +1,24 @@
+{
+  "id": "/showroom",
+  "name": "GF Auto Showroom",
+  "short_name": "GF Showroom",
+  "description": "Découvrez les véhicules GF Auto disponibles à Abidjan, Côte d’Ivoire.",
+  "display_override": ["standalone", "minimal-ui"],
+  "prefer_related_applications": false,
+  "lang": "fr",
+  "start_url": "/showroom",
+  "scope": "/showroom",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#176b45",
+  "categories": ["shopping", "lifestyle"],
+  "icons": [
+    {
+      "src": "/icons/gf-auto.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
