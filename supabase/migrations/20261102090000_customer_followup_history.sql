@@ -45,7 +45,7 @@ grant select, insert on public.customer_followups to authenticated;
 
 -- Preserve existing customer notes as the first historical follow-up.
 insert into public.customer_followups(customer_id, content, content_zh, created_at)
-select id, notes, notes_zh, coalesce(updated_at, created_at, now())
+select id, notes, notes_zh, coalesce(created_at, now())
 from public.customers
 where nullif(trim(notes), '') is not null
   and not exists (
