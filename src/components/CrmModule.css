@@ -110,3 +110,12 @@
 .crm-status-select.crm-status-deposit{background:#fff0d8!important;color:#a7650c!important;border-color:#f0d19d!important}
 .crm-status-select.crm-status-signed{background:#dff4e4!important;color:#18733c!important;border-color:#b8dfc2!important}
 .crm-status-select.crm-status-dead{background:#fde8e7!important;color:#b33d38!important;border-color:#f0c2bf!important}
+
+@media(max-width:720px){
+ .crm-mobile-head{align-items:flex-start!important;gap:8px!important}
+ .crm-lead-status{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex:0 0 48%;max-width:48%;min-width:0}
+ .crm-lead-status>.lead-type{white-space:nowrap}
+ .crm-lead-status .crm-visit-control{display:grid;grid-template-columns:minmax(0,1fr) 112px;gap:4px;width:100%;min-width:0}
+ .crm-lead-status .crm-visit-control select,.crm-lead-status .crm-visit-control input{height:30px;padding:0 5px;font-size:10px;min-width:0;width:100%;border-radius:7px}
+ .crm-mobile-actions{margin-top:4px!important;display:flex;justify-content:flex-end}
+}
