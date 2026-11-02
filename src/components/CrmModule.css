@@ -75,3 +75,5 @@
  .performance-wrap .pool-actions{align-items:center}
  .performance-wrap .pool-actions .secondary{min-height:36px}
 }
+
+.followup-hint{display:block;margin-top:5px;color:#84928a;font-size:10px;font-weight:400;line-height:1.45}
