@@ -95,3 +95,18 @@
 .crm-state-deposit.is-active{background:#fff0d8!important;border-color:#f0d19d!important;color:#9a610d!important}
 .crm-state-signed.is-active{background:#dff4e4!important;border-color:#b8dfc2!important;color:#18733c!important}
 .crm-state-dead.is-active{background:#fde8e7!important;border-color:#f0c2bf!important;color:#b33d38!important}
+
+@media(max-width:720px){
+ .crm-mobile-meta-compact{margin-top:5px!important;margin-bottom:5px!important;padding:0!important;min-height:0!important;gap:10px!important;font-size:10px!important}
+ .crm-mobile-card .crm-mobile-actions{margin-top:7px!important}
+ .crm-mobile-card .crm-visit-control{margin-top:0!important}
+ .crm-mobile-card{padding:13px!important}
+}
+.crm-status-select{font-weight:600!important;border-width:1px!important}
+.crm-status-select.crm-status-empty{background:#f5f6f5!important;color:#7b8780!important;border-color:#dfe5e1!important}
+.crm-status-select.crm-status-1{background:#e5f1ff!important;color:#2463a6!important;border-color:#bfd8f4!important}
+.crm-status-select.crm-status-2{background:#e8e5ff!important;color:#5b49a5!important;border-color:#d0c9f4!important}
+.crm-status-select.crm-status-3{background:#dff5ed!important;color:#147653!important;border-color:#b8e4d3!important}
+.crm-status-select.crm-status-deposit{background:#fff0d8!important;color:#a7650c!important;border-color:#f0d19d!important}
+.crm-status-select.crm-status-signed{background:#dff4e4!important;color:#18733c!important;border-color:#b8dfc2!important}
+.crm-status-select.crm-status-dead{background:#fde8e7!important;color:#b33d38!important;border-color:#f0c2bf!important}
