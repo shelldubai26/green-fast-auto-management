@@ -77,3 +77,21 @@
 }
 
 .followup-hint{display:block;margin-top:5px;color:#84928a;font-size:10px;font-weight:400;line-height:1.45}
+
+/* Compact CRM mobile follow-up controls */
+@media(max-width:720px){
+ .crm-mobile-actions{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:6px;align-items:center}
+ .crm-mobile-actions .crm-visit-control{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:7px}
+ .crm-visit-control select,.crm-visit-control input{width:100%;min-width:0;height:36px;border:1px solid #dce6e0;border-radius:8px;background:#fff;color:#40534a;padding:0 8px;font-size:11px}
+ .crm-visit-control input:disabled{background:#f4f6f4;color:#a0aaa4}
+ .crm-mobile-actions .mini-action{flex:initial;min-width:0;padding:7px 8px;font-size:9px}
+}
+.crm-mobile-meta .crm-stage-visit_1,.crm-stage-visit_1{background:#e5f1ff!important;color:#2463a6!important}
+.crm-mobile-meta .crm-stage-visit_2,.crm-stage-visit_2{background:#e8e5ff!important;color:#5b49a5!important}
+.crm-mobile-meta .crm-stage-visit_3,.crm-stage-visit_3{background:#dff5ed!important;color:#147653!important}
+.crm-mobile-meta .crm-stage-deposit,.crm-stage-deposit{background:#fff0d8!important;color:#a7650c!important}
+.crm-mobile-meta .crm-stage-won,.crm-stage-won{background:#dff4e4!important;color:#18733c!important}
+.crm-mobile-meta .crm-stage-dead,.crm-stage-dead{background:#fde8e7!important;color:#b33d38!important}
+.crm-state-deposit.is-active{background:#fff0d8!important;border-color:#f0d19d!important;color:#9a610d!important}
+.crm-state-signed.is-active{background:#dff4e4!important;border-color:#b8dfc2!important;color:#18733c!important}
+.crm-state-dead.is-active{background:#fde8e7!important;border-color:#f0c2bf!important;color:#b33d38!important}
